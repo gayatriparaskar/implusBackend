@@ -2,12 +2,27 @@
 const Chat = require('../models/Chats');
 const GroupChat = require('../models/GroupChat');
 const Group = require('../models/Group');
+const User = require('../models/Auth');
 
 const onlineUsers = {};
+
+async function updateUserOnlineStatus(userId, status) {
+  await User.findByIdAndUpdate(userId, {
+    online_status: status,
+    ...(status === "offline" ? { last_seen: new Date() } : {})
+  });
+}
 
 function socketHandler(io) {
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+
+ // ✅ Handle user online status
+    socket.on('userOnline', async (userId) => {
+      onlineUsers[userId] = socket.id;
+      await updateUserOnlineStatus(userId, "online");
+      console.log(`User ${userId} is now online`);
+    });
 
     socket.on('join', ({ userId }) => {
       onlineUsers[userId] = socket.id;
@@ -39,13 +54,21 @@ function socketHandler(io) {
       io.to(groupId).emit('receiveGroupMessage', chatData);
     });
 
-    socket.on('disconnect', () => {
+    // ✅ Handle user disconnect and mark offline
+    socket.on('disconnect', async () => {
+      let disconnectedUserId = null;
+
       for (let userId in onlineUsers) {
         if (onlineUsers[userId] === socket.id) {
+          disconnectedUserId = userId;
           delete onlineUsers[userId];
-          console.log('User disconnected:', userId);
           break;
         }
+      }
+
+      if (disconnectedUserId) {
+        await updateUserOnlineStatus(disconnectedUserId, "offline");
+        console.log('User disconnected:', disconnectedUserId);
       }
     });
   });

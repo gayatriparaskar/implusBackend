@@ -16,6 +16,11 @@ function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+function normalizePhone(phone) {
+  return phone.replace(/\D/g, '').slice(-10); // keep last 10 digits (Indian numbers)
+}
+
+
 module.exports.register = async (req, res) => {
   try {
     const data = req.body;
@@ -26,8 +31,9 @@ module.exports.register = async (req, res) => {
     });
 
     if (existingUser) {
-       const otp = generateOTP();
-    otpStore.set(data.phone_number, {
+      const otp = generateOTP();
+      const normPhone = normalizePhone(data.phone_number); // ✅ normalize here
+      otpStore.set(normPhone, {
       otp,
       expiresAt: Date.now() + 5 * 60 * 1000, // 5 mins expiry
     });
@@ -45,7 +51,8 @@ module.exports.register = async (req, res) => {
     }
     // Inside register controller, before saving user:
     const otp = generateOTP();
-    otpStore.set(data.phone_number, {
+    const normPhone = normalizePhone(data.phone_number); // ✅ normalize here
+    otpStore.set(normPhone, {
       otp,
       expiresAt: Date.now() + 5 * 60 * 1000, // 5 mins expiry
     });
@@ -191,7 +198,8 @@ module.exports.verifyOtp = async (req, res) => {
         .json({ success: true, message: "User already verified" });
     }
 
-    const storedOtpData = otpStore.get(phone_number);
+    const normPhone = normalizePhone(phone_number); // ✅ normalize here
+    const storedOtpData = otpStore.get(normPhone);
     console.log("📦 Stored OTP data:", storedOtpData);
     console.log("📥 OTP provided by user:", otp);
     if (!storedOtpData || storedOtpData.otp !== otp) {
@@ -257,8 +265,9 @@ module.exports.resendOtp = async (req, res) => {
     }
 
     // ✅ Generate new OTP
+    const normPhone = normalizePhone(phone_number); // ✅ normalize
     const newOtp = generateOTP();
-    otpStore.set(phone_number, {
+    otpStore.set(normPhone, {
       otp: newOtp,
       expiresAt: Date.now() + 5 * 60 * 1000,
     });

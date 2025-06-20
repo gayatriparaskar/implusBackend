@@ -48,28 +48,78 @@ module.exports.getchatList = async (req, res) => {
 
     // ✅ Step 3: Fetch full user details of those contacts
     const contactDetails = await User.find({ _id: { $in: contactIds } })
-      .select("_id userName dp status_message display_name nick_name email_id");
+      .select("_id userName dp status_message display_name nick_name email_id online_status last_seen");
 
-    // ✅ Step 4: Get groups where user is a member
+    // ✅ Step 4: Fetch latest message and unread count per contact
+    const contactData = await Promise.all(contactDetails.map(async (user) => {
+      const lastMsg = await chatModel.findOne({
+        $or: [
+          { senderId: userId, receiverId: user._id },
+          { senderId: user._id, receiverId: userId }
+        ]
+      }).sort({ timestamp: -1 });
+
+      const unreadCount = await chatModel.countDocuments({
+        senderId: user._id,
+        receiverId: userId,
+        readBy: { $ne: userId }
+      });
+
+      return {
+        type: "user",
+        chatId: user._id,
+        userName: user.userName,
+        display_name: user.display_name,
+        dp: user.dp,
+        status_message: user.status_message,
+        email_id: user.email_id,
+        online_status: user.online_status,
+        last_seen: user.last_seen,
+        lastMessage: lastMsg ? {
+          text: lastMsg.message,
+          timestamp: lastMsg.timestamp,
+          messageType: lastMsg.messageType
+        } : null,
+        unreadCount
+      };
+    }));
+
+    // ✅ Step 5: Get groups where user is a member
     const groups = await GroupModel.find({ members: userId })
       .select("_id name image members");
 
-    // ✅ Step 5: Add `type` and merge into single array
-    const formattedContacts = contactDetails.map(user => ({
-      type: "user",
-      ...user._doc
+    // ✅ Step 6: For each group, fetch last message and unread count
+    const groupData = await Promise.all(groups.map(async (group) => {
+      const lastMsg = await GroupChat.findOne({ groupId: group._id })
+        .sort({ timestamp: -1 });
+
+      const unreadCount = await GroupChat.countDocuments({
+        groupId: group._id,
+        readBy: { $ne: userId }
+      });
+
+      return {
+        type: "group",
+        chatId: group._id,
+        name: group.name,
+        dp: group.image,
+        members: group.members,
+        lastMessage: lastMsg ? {
+          text: lastMsg.message,
+          timestamp: lastMsg.timestamp,
+          messageType: lastMsg.messageType
+        } : null,
+        unreadCount
+      };
     }));
 
-    const formattedGroups = groups.map(group => ({
-      type: "group",
-      ...group._doc
-    }));
+    const combined = [...contactData, ...groupData].sort(
+      (a, b) => new Date(b.lastMessage?.timestamp || 0) - new Date(a.lastMessage?.timestamp || 0)
+    );
 
-    const combined = [...formattedContacts, ...formattedGroups];
-
-    // ✅ Step 6: Return response
+    // ✅ Step 7: Return response
     res.status(200).json({
-      message: "Combined contact and group list",
+      message: "Combined contact and group list with metadata",
       data: combined
     });
 
@@ -83,122 +133,188 @@ module.exports.getchatList = async (req, res) => {
 
 // // both code is merged
 
-// module.exports.getUnifiedChatList = async (req, res) => {
-//   try {
-//     const userId = req.params.userId;
-//     const objectId = new ObjectId(userId);
-//     const { withLastMessage } = req.query;
+module.exports.getUnifiedChatList = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const objectId = new ObjectId(userId);
+    const { withLastMessage } = req.query;
 
-//     if (withLastMessage === "true") {
-//       // ✅ WhatsApp-style Chat List with last message
+    if (withLastMessage === "true") {
+      // ✅ 1-to-1 chat summary with last message, unread count & seen status
+      const oneToOne = await chatModel.aggregate([
+        {
+          $match: {
+            $or: [{ senderId: userId }, { receiverId: userId }],
+          },
+        },
+        {
+          $addFields: {
+            userWith: {
+              $cond: [
+                { $eq: ["$senderId", userId] },
+                "$receiverId",
+                "$senderId",
+              ],
+            },
+          },
+        },
+        { $sort: { timestamp: -1 } },
+        {
+          $group: {
+            _id: "$userWith",
+            lastMessage: { $first: "$message" },
+            lastMessageTime: { $first: "$timestamp" },
+            senderId: { $first: "$senderId" },
+            seenBy: { $first: "$seenBy" },
+            unreadCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ["$senderId", userId] },
+                      { $not: { $in: [userId, "$seenBy"] } },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: "userdetails",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user",
+          },
+        },
+        { $unwind: "$user" },
+        {
+          $project: {
+            type: { $literal: "user" },
+            chatId: "$user._id",
+            name: "$user.userName",
+            dp: "$user.dp",
+            lastMessage: 1,
+            lastMessageTime: 1,
+            unreadCount: 1,
+            seen: { $in: [userId, "$seenBy"] },
+            online_status: "$user.online_status"
+          },
+        },
+      ]);
 
-//       // 1-to-1 chat summary
-//       const oneToOne = await chatModel.aggregate([
-//         {
-//           $match: {
-//             $or: [{ senderId: userId }, { receiverId: userId }],
-//           },
-//         },
-//         {
-//           $project: {
-//             userWith: {
-//               $cond: [
-//                 { $eq: ["$senderId", userId] },
-//                 "$receiverId",
-//                 "$senderId",
-//               ],
-//             },
-//             message: 1,
-//             timestamp: 1,
-//           },
-//         },
-//         { $sort: { timestamp: -1 } },
-//         {
-//           $group: {
-//             _id: "$userWith",
-//             lastMessage: { $first: "$message" },
-//             lastMessageTime: { $first: "$timestamp" },
-//           },
-//         },
-//         {
-//           $lookup: {
-//             from: "userdetails",
-//             localField: "_id",
-//             foreignField: "_id",
-//             as: "user",
-//           },
-//         },
-//         { $unwind: "$user" },
-//         {
-//           $project: {
-//             type: { $literal: "user" },
-//             chatId: "$user._id",
-//             name: "$user.userName",
-//             dp: "$user.dp",
-//             lastMessage: 1,
-//             lastMessageTime: 1,
-//           },
-//         },
-//       ]);
+      // ✅ Group chat summary with latest message and unread count
+      const groupChatSummary = await GroupModel.aggregate([
+        {
+          $match: {
+            members: objectId,
+          },
+        },
+        {
+          $lookup: {
+            from: "groupchats",
+            let: { groupId: "$_id" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$groupId", "$$groupId"] } } },
+              { $sort: { timestamp: -1 } },
+              {
+                $group: {
+                  _id: "$groupId",
+                  lastMessage: { $first: "$message" },
+                  lastMessageTime: { $first: "$timestamp" },
+                  unreadCount: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $not: { $in: [userId, "$seenBy"] },
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+            as: "lastMsg",
+          },
+        },
+        {
+          $addFields: {
+            lastMsg: { $arrayElemAt: ["$lastMsg", 0] },
+          },
+        },
+        {
+          $project: {
+            type: { $literal: "group" },
+            chatId: "$_id",
+            name: "$name",
+            dp: "$image",
+            lastMessage: "$lastMsg.lastMessage",
+            lastMessageTime: "$lastMsg.lastMessageTime",
+            unreadCount: "$lastMsg.unreadCount",
+          },
+        },
+      ]);
 
-//       // Group chat summary
-//       const groupChats = await GroupModel.aggregate([
-//         {
-//           $match: {
-//             members: objectId,
-//           },
-//         },
-//         {
-//           $project: {
-//             type: { $literal: "group" },
-//             chatId: "$_id",
-//             name: "$name",
-//             dp: "$image",
-//             lastMessage: null,
-//             lastMessageTime: null,
-//           },
-//         },
-//       ]);
+      const combined = [...oneToOne, ...groupChatSummary].sort(
+        (a, b) =>
+          new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0)
+      );
 
-//       const combined = [...oneToOne, ...groupChats].sort((a, b) =>
-//         new Date(b.lastMessageTime || 0) - new Date(a.lastMessageTime || 0)
-//       );
+      return res.status(200).json({
+        message: "Unified chat list with last messages",
+        data: combined,
+      });
 
-//       return res.status(200).json({
-//         message: "Unified chat list with last messages",
-//         data: combined,
-//       });
-//     } else {
-//       // ✅ Simple contact + group list without messages
+    } else {
+      // ✅ If no message history is needed — just contacts & groups
+      const oneOnOne = await chatModel.find({
+        $or: [{ senderId: userId }, { receiverId: userId }],
+      });
 
-//       const oneOnOne = await chatModel.find({
-//         $or: [{ senderId: userId }, { receiverId: userId }],
-//       });
+      const contactSet = new Set();
+      oneOnOne.forEach((chat) => {
+        if (chat.senderId !== userId) contactSet.add(chat.senderId);
+        if (chat.receiverId !== userId) contactSet.add(chat.receiverId);
+      });
 
-//       const contactSet = new Set();
-//       oneOnOne.forEach((chat) => {
-//         if (chat.senderId !== userId) contactSet.add(chat.senderId);
-//         if (chat.receiverId !== userId) contactSet.add(chat.receiverId);
-//       });
+      const contactIds = Array.from(contactSet);
 
-//       const contactIds = Array.from(contactSet);
+      const contactDetails = await User.find({ _id: { $in: contactIds } }).select(
+        "_id userName dp display_name nick_name status_message email_id online_status last_seen"
+      );
 
-//       const contactDetails = await User.find({ _id: { $in: contactIds } }).select(
-//         "_id userName dp display_name nick_name status_message email_id"
-//       );
+      const groups = await GroupModel.find({ members: objectId }).select(
+        "_id name image members"
+      );
 
-//       const groups = await GroupModel.find({ members: objectId }).select(
-//         "_id name image members"
-//       );
+      const formattedContacts = contactDetails.map(user => ({
+        type: "user",
+        chatId: user._id,
+        name: user.userName,
+        dp: user.dp,
+        online_status: user.online_status,
+        last_seen: user.last_seen,
+      }));
 
-//       return res.status(200).json({
-//         message: "Basic contact and group list",
-//         contacts: contactDetails,
-//         groups,
-//       });
-//     }
-//   } catch (err) {
-//     console.error("Error in unified chat list:", err.stack);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// };
+      const formattedGroups = groups.map(group => ({
+        type: "group",
+        chatId: group._id,
+        name: group.name,
+        dp: group.image,
+      }));
+
+      return res.status(200).json({
+        message: "Basic contact and group list",
+        data: [...formattedContacts, ...formattedGroups],
+      });
+    }
+  } catch (err) {
+    console.error("Error in unified chat list:", err.stack);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
