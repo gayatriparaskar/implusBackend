@@ -27,17 +27,15 @@ module.exports.sendMessage = async (req, res) => {
 };
 
 // get chat list all
-
 module.exports.getchatList = async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    // ✅ Step 1: Get all 1-to-1 chats where user is involved
+    // ✅ Step 1: Fetch all 1-to-1 chats
     const oneOnOne = await chatModel.find({
       $or: [{ senderId: userId }, { receiverId: userId }],
     });
 
-    // ✅ Step 2: Extract unique contact IDs
     const contactSet = new Set();
     oneOnOne.forEach((chat) => {
       if (chat.senderId.toString() !== userId) contactSet.add(chat.senderId.toString());
@@ -46,17 +44,17 @@ module.exports.getchatList = async (req, res) => {
 
     const contactIds = Array.from(contactSet);
 
-    // ✅ Step 3: Fetch user details for contacts
+    // ✅ Step 2: Fetch contact details
     const contactDetails = await User.find({ _id: { $in: contactIds } }).select(
-      "_id userName dp status_message display_name nick_name email_id"
+      "_id userName dp status_message display_name nick_name email_id last_seen"
     );
 
-    // ✅ Step 4: Get groups where user is a member
+    // ✅ Step 3: Fetch groups where user is a member
     const groups = await GroupModel.find({ members: userId }).select(
-      "_id name image members"
+      "_id name image members group_status_message"
     );
 
-    // ✅ Step 5: Attach latest message to each contact
+    // ✅ Step 4: Format user chats
     const formattedContacts = await Promise.all(
       contactDetails.map(async (user) => {
         const lastMsg = await chatModel
@@ -68,26 +66,67 @@ module.exports.getchatList = async (req, res) => {
           })
           .sort({ timestamp: -1 });
 
+        const unreadCount = await chatModel.countDocuments({
+          senderId: user._id.toString(),
+          receiverId: userId,
+          read: false,
+        });
+
+        let lastMsgRead = true;
+        if (lastMsg && lastMsg.receiverId.toString() === userId && !lastMsg.read) {
+          lastMsgRead = false;
+        }
+
         return {
           type: "user",
           ...user._doc,
-          lastMsg: lastMsg ? lastMsg.message : null, // include message text only, optional
-          lastMsgAt: lastMsg ? lastMsg.timestamp : null, // for sorting UI if needed
+          lastMsg: lastMsg ? lastMsg.message : null,
+          lastMsgAt: lastMsg ? lastMsg.timestamp : null,
+          lastMsgRead,
+          unreadCount,
         };
       })
     );
 
-    // ✅ Step 6: Format groups
-    const formattedGroups = groups.map((group) => ({
-      type: "group",
-      ...group._doc,
-    }));
+    // ✅ Step 5: Format group chats
+    const formattedGroups = await Promise.all(
+      groups.map(async (group) => {
+        const lastGroupMsg = await GroupModel
+          .findOne({ groupId: group._id })
+          .sort({ timestamp: -1 });
 
-    // ✅ Step 7: Combine and respond
+        const unreadCount = await GroupModel.countDocuments({
+          groupId: group._id,
+          "seenBy.userId": { $ne: userId },
+        });
+
+        let lastMsgRead = true;
+        if (
+          lastGroupMsg &&
+          (!lastGroupMsg.seenBy ||
+            !lastGroupMsg.seenBy.some((entry) => entry.userId.toString() === userId))
+        ) {
+          lastMsgRead = false;
+        }
+
+        return {
+          type: "group",
+          ...group._doc,
+          lastMsg: lastGroupMsg ? lastGroupMsg.message : null,
+          lastMsgAt: lastGroupMsg ? lastGroupMsg.timestamp : null,
+          last_activity: lastGroupMsg ? lastGroupMsg.timestamp : null,
+          group_status_message: group.group_status_message || "No group status set",
+          lastMsgRead,
+          unreadCount,
+        };
+      })
+    );
+
+    // ✅ Step 6: Merge and respond
     const combined = [...formattedContacts, ...formattedGroups];
 
     res.status(200).json({
-      message: "Combined contact and group list",
+      message: "Chat list with all info",
       data: combined,
     });
   } catch (err) {
