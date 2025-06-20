@@ -1,14 +1,12 @@
 const mongoose = require('mongoose');
 const ObjectId = mongoose.Types.ObjectId;
-const { successResponse , errorResponse } = require("../helper/successAndError");
 
 const GroupModel = require ("../models/Group");
 const GroupChatModel = require("../models/GroupChat");
 
 // app.post('/groups', async (req, res) => {
 module.exports.createGroup= async (req, res) => {
-  try {
-    const { name, members, admins } = req.body;
+  const { name, members, admins } = req.body;
 // Convert strings to ObjectIds
     const memberIds = members.map(id => new ObjectId(id));
     const adminIds = admins.map(id => new ObjectId(id));
@@ -19,13 +17,7 @@ module.exports.createGroup= async (req, res) => {
       admins: adminIds
     });
     
-    // res.json(group);
-    res.status(200).json(200,"Group is created",group);
-  } catch (error) {
-       res.status(500).json(500,"Group is created",error.message);
- 
-  }
-  
+    res.json(group);
 };
 
 // app.get('/groups/:userId', async (req, res) => {
