@@ -1,12 +1,8 @@
-
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const path = require("path");
-const connectDB = require("./src/config/database");
-const morgan = require("morgan");
-const serverless = require("serverless-http"); // ✅ required for Vercel
-
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const cors = require('cors');
+const dotenv = require('dotenv');
 dotenv.config();
 const connectDB = require("./src/config/database");
 const socketHandler = require('./src/socket/socket');
@@ -32,10 +28,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRouter);
 app.use('/api/chat', chatRouter);
 // // Store connected users
-// let onlineUsers = {
+// let onlineUsers = {};
+
 // io.on('connection', (socket) => {
 //   console.log('User connected:', socket.id);
-
 
 //   socket.on('join', ({ userId }) => {
 //     onlineUsers[userId] = socket.id;
