@@ -1,14 +1,24 @@
-// This is a simulated SMS sender. Replace console.log with Twilio logic when ready.
-const mongoose = require("mongoose");
+// utils/sendSMS.js
+const twilio = require('twilio');
 
-const sendSMS = async (to, message) => {
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
+
+module.exports.sendSMS = async function sendSMS(to, body) {
   try {
-    console.log(`📲 Simulated SMS to ${to}: ${message}`);
+    const message = await client.messages.create({
+      body,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to,
+    });
+
+    console.log("✅ SMS sent via Twilio:", message.sid);
     return true;
   } catch (error) {
-    console.error("❌ Failed to send SMS:", error);
+    console.error("❌ Twilio SMS Error:", error.message);
     return false;
   }
 };
 
-module.exports = sendSMS;

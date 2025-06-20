@@ -5,7 +5,7 @@ const bcrypt = require("bcrypt");
 const dotenv = require("dotenv");
 const { successResponse, errorResponse } = require("../helper/successAndError");
 dotenv.config();
-const sendSMS = require("../utils/sendSMS"); // ✅ import simulated SMS
+const {sendSMS} = require("../utils/sendSMS"); // ✅ import simulated SMS
 const otpStore = require("../utils/otpStore");
 
 const generateToken = (userId) => {
@@ -33,7 +33,10 @@ module.exports.register = async (req, res) => {
     });
     const smsSent = await sendSMS(
       data.phone_number,
-      `Your OTP for registration is: ${otp}`
+     
+      `Your IAmPlus--Simflo verification code is ${otp}. Please enter this code to proceed.
+Do not share this code with anyone.
+This OTP is valid for 1 minute Only ! Thank You Team IamPlus.`
     );
     console.log(`✅ OTP for ${data.phone_number}:`, otp);
      return res.status(200).json({
@@ -43,6 +46,12 @@ module.exports.register = async (req, res) => {
       smsSent:otp
     });
     }
+
+    // // ✅ Generate OTP
+    // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // data.otp = otp;
+    // data.isVerified = false;
+
     // Inside register controller, before saving user:
     const otp = generateOTP();
     otpStore.set(data.phone_number, {
@@ -58,7 +67,7 @@ module.exports.register = async (req, res) => {
     // ✅ Simulate SMS sending
     const smsSent = await sendSMS(
       data.phone_number,
-     ` Your OTP for registration is: ${otp}`
+      `Your OTP for registration is: ${otp}`
     );
 
     if (!smsSent) {
@@ -104,8 +113,6 @@ module.exports.register = async (req, res) => {
   }
 };
 
-
-// there is no need of login API now
 module.exports.login = async (req, res) => {
   const{phone_number}  = req.body;
 
@@ -118,7 +125,7 @@ module.exports.login = async (req, res) => {
     //   otp,
     //   expiresAt: Date.now() + 5 * 60 * 1000, // 5 mins expiry
     // });
-    // console.log(✅ OTP for ${phone_number}:, otp);
+    // console.log(`✅ OTP for ${phone_number}:`, otp);
 
     if (!user) {
       return res
@@ -264,7 +271,7 @@ module.exports.resendOtp = async (req, res) => {
     });
 
     // ✅ Simulate OTP via SMS
-    const smsSent = await sendSMS(phone_number,` Your new OTP is: ${newOtp}`);
+    const smsSent = await sendSMS(phone_number, `Your new OTP is: ${newOtp}`);
 
     if (!smsSent) {
       return res
@@ -284,3 +291,4 @@ module.exports.resendOtp = async (req, res) => {
       .json(errorResponse(500, "Server error", error.message));
   }
 };
+
