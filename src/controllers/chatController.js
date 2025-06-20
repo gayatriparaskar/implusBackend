@@ -4,7 +4,7 @@ const Group = require("../models/Group");
 const User = require("../models/Auth");
 const GroupModel = require("../models/Group");
 
-const { ObjectId } = require('mongoose').Types;
+const { ObjectId } = require("mongoose").Types;
 
 // app.get('/messages/:user1/:user2', async (req, res) => {
 module.exports.sendMessage = async (req, res) => {
@@ -34,102 +34,67 @@ module.exports.getchatList = async (req, res) => {
 
     // ✅ Step 1: Get all 1-to-1 chats where user is involved
     const oneOnOne = await chatModel.find({
-      $or: [{ senderId: userId }, { receiverId: userId }]
+      $or: [{ senderId: userId }, { receiverId: userId }],
     });
 
     // ✅ Step 2: Extract unique contact IDs
     const contactSet = new Set();
-    oneOnOne.forEach(chat => {
-      if (chat.senderId !== userId) contactSet.add(chat.senderId);
-      if (chat.receiverId !== userId) contactSet.add(chat.receiverId);
+    oneOnOne.forEach((chat) => {
+      if (chat.senderId.toString() !== userId) contactSet.add(chat.senderId.toString());
+      if (chat.receiverId.toString() !== userId) contactSet.add(chat.receiverId.toString());
     });
 
     const contactIds = Array.from(contactSet);
 
-    // ✅ Step 3: Fetch full user details of those contacts
-    const contactDetails = await User.find({ _id: { $in: contactIds } })
-      .select("_id userName dp status_message display_name nick_name email_id online_status last_seen");
-
-    // ✅ Step 4: Fetch latest message and unread count per contact
-    const contactData = await Promise.all(contactDetails.map(async (user) => {
-      const lastMsg = await chatModel.findOne({
-        $or: [
-          { senderId: userId, receiverId: user._id },
-          { senderId: user._id, receiverId: userId }
-        ]
-      }).sort({ timestamp: -1 });
-
-      const unreadCount = await chatModel.countDocuments({
-        senderId: user._id,
-        receiverId: userId,
-        readBy: { $ne: userId }
-      });
-
-      return {
-        type: "user",
-        chatId: user._id,
-        userName: user.userName,
-        display_name: user.display_name,
-        dp: user.dp,
-        status_message: user.status_message,
-        email_id: user.email_id,
-        online_status: user.online_status,
-        last_seen: user.last_seen,
-        lastMessage: lastMsg ? {
-          text: lastMsg.message,
-          timestamp: lastMsg.timestamp,
-          messageType: lastMsg.messageType
-        } : null,
-        unreadCount
-      };
-    }));
-
-    // ✅ Step 5: Get groups where user is a member
-    const groups = await GroupModel.find({ members: userId })
-      .select("_id name image members");
-
-    // ✅ Step 6: For each group, fetch last message and unread count
-    const groupData = await Promise.all(groups.map(async (group) => {
-      const lastMsg = await GroupChat.findOne({ groupId: group._id })
-        .sort({ timestamp: -1 });
-
-      const unreadCount = await GroupChat.countDocuments({
-        groupId: group._id,
-        readBy: { $ne: userId }
-      });
-
-      return {
-        type: "group",
-        chatId: group._id,
-        name: group.name,
-        dp: group.image,
-        members: group.members,
-        lastMessage: lastMsg ? {
-          text: lastMsg.message,
-          timestamp: lastMsg.timestamp,
-          messageType: lastMsg.messageType
-        } : null,
-        unreadCount
-      };
-    }));
-
-    const combined = [...contactData, ...groupData].sort(
-      (a, b) => new Date(b.lastMessage?.timestamp || 0) - new Date(a.lastMessage?.timestamp || 0)
+    // ✅ Step 3: Fetch user details for contacts
+    const contactDetails = await User.find({ _id: { $in: contactIds } }).select(
+      "_id userName dp status_message display_name nick_name email_id"
     );
 
-    // ✅ Step 7: Return response
-    res.status(200).json({
-      message: "Combined contact and group list with metadata",
-      data: combined
-    });
+    // ✅ Step 4: Get groups where user is a member
+    const groups = await GroupModel.find({ members: userId }).select(
+      "_id name image members"
+    );
 
+    // ✅ Step 5: Attach latest message to each contact
+    const formattedContacts = await Promise.all(
+      contactDetails.map(async (user) => {
+        const lastMsg = await chatModel
+          .findOne({
+            $or: [
+              { senderId: userId, receiverId: user._id.toString() },
+              { senderId: user._id.toString(), receiverId: userId },
+            ],
+          })
+          .sort({ timestamp: -1 });
+
+        return {
+          type: "user",
+          ...user._doc,
+          lastMsg: lastMsg ? lastMsg.message : null, // include message text only, optional
+          lastMsgAt: lastMsg ? lastMsg.timestamp : null, // for sorting UI if needed
+        };
+      })
+    );
+
+    // ✅ Step 6: Format groups
+    const formattedGroups = groups.map((group) => ({
+      type: "group",
+      ...group._doc,
+    }));
+
+    // ✅ Step 7: Combine and respond
+    const combined = [...formattedContacts, ...formattedGroups];
+
+    res.status(200).json({
+      message: "Combined contact and group list",
+      data: combined,
+    });
   } catch (err) {
     console.error("Error fetching chat list:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
-
 
 // // both code is merged
 
@@ -201,7 +166,7 @@ module.exports.getUnifiedChatList = async (req, res) => {
             lastMessageTime: 1,
             unreadCount: 1,
             seen: { $in: [userId, "$seenBy"] },
-            online_status: "$user.online_status"
+            online_status: "$user.online_status",
           },
         },
       ]);
@@ -269,7 +234,6 @@ module.exports.getUnifiedChatList = async (req, res) => {
         message: "Unified chat list with last messages",
         data: combined,
       });
-
     } else {
       // ✅ If no message history is needed — just contacts & groups
       const oneOnOne = await chatModel.find({
@@ -284,7 +248,9 @@ module.exports.getUnifiedChatList = async (req, res) => {
 
       const contactIds = Array.from(contactSet);
 
-      const contactDetails = await User.find({ _id: { $in: contactIds } }).select(
+      const contactDetails = await User.find({
+        _id: { $in: contactIds },
+      }).select(
         "_id userName dp display_name nick_name status_message email_id online_status last_seen"
       );
 
@@ -292,7 +258,7 @@ module.exports.getUnifiedChatList = async (req, res) => {
         "_id name image members"
       );
 
-      const formattedContacts = contactDetails.map(user => ({
+      const formattedContacts = contactDetails.map((user) => ({
         type: "user",
         chatId: user._id,
         name: user.userName,
@@ -301,7 +267,7 @@ module.exports.getUnifiedChatList = async (req, res) => {
         last_seen: user.last_seen,
       }));
 
-      const formattedGroups = groups.map(group => ({
+      const formattedGroups = groups.map((group) => ({
         type: "group",
         chatId: group._id,
         name: group.name,

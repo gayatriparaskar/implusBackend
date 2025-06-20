@@ -68,7 +68,12 @@ This OTP is valid for 1 minute Only ! Thank You Team IamPlus.`
     console.log(`✅ OTP for ${data.phone_number}:`, otp);
 
     // ✅ Create user
-    const newUser = new UserModel(data);
+   const newUser = new UserModel({
+  ...data,
+  status_message: "send",       // ✅ enum safe default
+  online_status: "offline",     // ✅ enum safe default
+  last_seen: new Date(),        // ✅ correct type
+});
     await newUser.save();
 
     // ✅ Simulate SMS sending

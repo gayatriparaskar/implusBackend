@@ -23,7 +23,7 @@ module.exports.createGroup= async (req, res) => {
     .json(successResponse,"Group is created",group);
   } catch (error) {
     res.status(500)
-    .json(errorResponse,"Group is created",group);
+    .json(errorResponse,"Group is created",error.message);
   }
   
 };
