@@ -74,4 +74,4 @@ function socketHandler(io) {
   });
 }
 
-module.exports = socketHandler;
+module.exports = {socketHandler , onlineUsers} ;

@@ -5,7 +5,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 dotenv.config();
 const connectDB = require("./src/config/database");
-const socketHandler = require('./src/socket/socket');
+const {socketHandler} = require('./src/socket/socket');
 const authRoutes = require("./src/routes/AuthRouter");
 const groupRouter = require("./src/routes/groupRouter");
 const chatRouter = require("./src/routes/chatRouter");

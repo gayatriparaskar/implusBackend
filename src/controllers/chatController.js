@@ -6,6 +6,8 @@ const GroupModel = require("../models/Group");
 
 const { ObjectId } = require("mongoose").Types;
 
+const { onlineUsers } = require("../socket/socket");
+
 // app.get('/messages/:user1/:user2', async (req, res) => {
 module.exports.sendMessage = async (req, res) => {
   const { user1, user2 } = req.params;
@@ -31,30 +33,32 @@ module.exports.getchatList = async (req, res) => {
   try {
     const userId = req.params.userId;
 
-    // ✅ Step 1: Fetch all 1-to-1 chats
+    // Step 1: Fetch all 1-to-1 chats
     const oneOnOne = await chatModel.find({
       $or: [{ senderId: userId }, { receiverId: userId }],
     });
 
     const contactSet = new Set();
     oneOnOne.forEach((chat) => {
-      if (chat.senderId.toString() !== userId) contactSet.add(chat.senderId.toString());
-      if (chat.receiverId.toString() !== userId) contactSet.add(chat.receiverId.toString());
+      if (chat.senderId.toString() !== userId)
+        contactSet.add(chat.senderId.toString());
+      if (chat.receiverId.toString() !== userId)
+        contactSet.add(chat.receiverId.toString());
     });
 
     const contactIds = Array.from(contactSet);
 
-    // ✅ Step 2: Fetch contact details
+    // Step 2: Fetch contact details
     const contactDetails = await User.find({ _id: { $in: contactIds } }).select(
       "_id userName dp status_message display_name nick_name email_id last_seen"
     );
 
-    // ✅ Step 3: Fetch groups where user is a member
+    // Step 3: Fetch groups where user is a member
     const groups = await GroupModel.find({ members: userId }).select(
       "_id name image members group_status_message"
     );
 
-    // ✅ Step 4: Format user chats
+    // Step 4: Format user contacts
     const formattedContacts = await Promise.all(
       contactDetails.map(async (user) => {
         const lastMsg = await chatModel
@@ -72,15 +76,19 @@ module.exports.getchatList = async (req, res) => {
           read: false,
         });
 
-        let lastMsgRead = true;
-        if (lastMsg && lastMsg.receiverId.toString() === userId && !lastMsg.read) {
+        if (
+          lastMsg &&
+          lastMsg.receiverId.toString() === userId &&
+          !lastMsg.read
+        ) {
           lastMsgRead = false;
         }
 
         return {
           type: "user",
           ...user._doc,
-          lastMsg: lastMsg ? lastMsg.message : null,
+          online: !!onlineUsers[user._id.toString()], // ✅ online status from socket
+          lastMsg,
           lastMsgAt: lastMsg ? lastMsg.timestamp : null,
           lastMsgRead,
           unreadCount,
@@ -88,12 +96,12 @@ module.exports.getchatList = async (req, res) => {
       })
     );
 
-    // ✅ Step 5: Format group chats
+    // Step 5: Format group chats
     const formattedGroups = await Promise.all(
       groups.map(async (group) => {
-        const lastGroupMsg = await GroupModel
-          .findOne({ groupId: group._id })
-          .sort({ timestamp: -1 });
+        const lastGroupMsg = await GroupModel.findOne({
+          groupId: group._id,
+        }).sort({ timestamp: -1 });
 
         const unreadCount = await GroupModel.countDocuments({
           groupId: group._id,
@@ -104,7 +112,9 @@ module.exports.getchatList = async (req, res) => {
         if (
           lastGroupMsg &&
           (!lastGroupMsg.seenBy ||
-            !lastGroupMsg.seenBy.some((entry) => entry.userId.toString() === userId))
+            !lastGroupMsg.seenBy.some(
+              (entry) => entry.userId.toString() === userId
+            ))
         ) {
           lastMsgRead = false;
         }
@@ -112,21 +122,26 @@ module.exports.getchatList = async (req, res) => {
         return {
           type: "group",
           ...group._doc,
-          lastMsg: lastGroupMsg ? lastGroupMsg.message : null,
+          lastMsg: lastGroupMsg || null,
           lastMsgAt: lastGroupMsg ? lastGroupMsg.timestamp : null,
           last_activity: lastGroupMsg ? lastGroupMsg.timestamp : null,
-          group_status_message: group.group_status_message || "No group status set",
+          group_status_message:
+            group.group_status_message || "No group status set",
           lastMsgRead,
           unreadCount,
         };
       })
     );
 
-    // ✅ Step 6: Merge and respond
-    const combined = [...formattedContacts, ...formattedGroups];
+    // Step 6: Combine and sort by lastMsgAt
+    const combined = [...formattedContacts, ...formattedGroups].sort((a, b) => {
+      const timeA = new Date(a.lastMsgAt || 0).getTime();
+      const timeB = new Date(b.lastMsgAt || 0).getTime();
+      return timeB - timeA;
+    });
 
     res.status(200).json({
-      message: "Chat list with all info",
+      message: "Chat list with all info, sorted by lastMsgAt",
       data: combined,
     });
   } catch (err) {

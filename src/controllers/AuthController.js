@@ -231,7 +231,7 @@ module.exports.verifyOtp = async (req, res) => {
     await user.save();
 
     // ✅ Clear the OTP from the store
-    otpStore.delete(phone_number);
+    otpStore.delete(normPhone);
 
     // ✅ Generate JWT token
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
