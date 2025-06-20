@@ -1,0 +1,29 @@
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
+
+const userSchema = new mongoose.Schema({
+  userName: {type:String, default:"IamPlus"},
+  last_name: {type:String, default:"IamPlus"},
+  password: {type:String, default:"IamPlus"},
+  nick_name: {type:String, default:"IamPlus"},
+  display_name: {type:String, default:"IamPlus"},
+  phone_number: {type:String, required:true},
+  email_id: {type:String, default:"IamPlus"},
+  dp: {type:String, default:"IamPlus"},
+  status_message: {type:String, default:"IamPlus"},
+  online_status: {type:String, default:"IamPlus"},
+  last_seen: {type:String, default:"IamPlus"},
+  current_status: {type:String, default:"IamPlus"},
+  connection_chain: {type:String, default:"IamPlus"},
+  location: {type:String, default:"IamPlus"},
+  home: {type:String, default:"IamPlus"},
+  work: {type:String, default:"IamPlus"},
+  website: {type:String, default:"IamPlus"},
+  social_media: [{type:String, default:"IamPlus"}],
+  circle: [{type:String, default:"IamPlus"}],
+  verified_as: [{type:String, default:"IamPlus"}], // e.g. ["email", "phone", "aadhar"]
+});
+
+
+const UserModel = mongoose.model("UserDetails", userSchema);
+module.exports = UserModel;
