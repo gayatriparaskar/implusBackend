@@ -19,11 +19,13 @@ module.exports.createGroup= async (req, res) => {
       admins: adminIds
     });
     
-    res.status(200)
-    .json(successResponse,"Group is created",group);
+    // res.status(200)
+    // .json(successResponse,"Group is created",group);
+    res.status(200).json(successResponse("Group is created", group));
+
   } catch (error) {
     res.status(500)
-    .json(errorResponse,"Group is created",error.message);
+    .json(errorResponse("Group is not created",error.message));
   }
   
 };

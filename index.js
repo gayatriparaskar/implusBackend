@@ -10,6 +10,7 @@ const authRoutes = require("./src/routes/AuthRouter");
 const groupRouter = require("./src/routes/groupRouter");
 const chatRouter = require("./src/routes/chatRouter");
 const { setSocketIo } = require('./src/controllers/groupController');
+const groupChatRouter = require("./src/routes/groupChatRouter");
 
 const app = express();
 const server = http.createServer(app);
@@ -27,6 +28,7 @@ socketHandler(io);
 app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/chatGroup', groupChatRouter);
 // // Store connected users
 // let onlineUsers = {};
 

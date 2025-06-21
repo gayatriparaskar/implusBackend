@@ -1,12 +1,5 @@
 const mongoose = require('mongoose');
 
-// const GroupChatSchema = new mongoose.Schema({
-//   groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
-//   senderId: { type: String, required: true },
-//   message: { type: String, required: true },
-//   timestamp: { type: Date, default: Date.now },
-// });
-
 const GroupChatSchema = new mongoose.Schema({
   groupId: { type: String, required: true },
   senderId: { type: String, required: true },
