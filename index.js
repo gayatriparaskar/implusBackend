@@ -19,6 +19,15 @@ app.use(cors());
 app.use(express.json());
 connectDB();
 
+
+app.get("/", async (req, res) => {
+    
+      res.status(200).json({
+        success: "Hello from the server",
+        message: "Server is running perfectly",
+      });
+
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRouter);
 app.use('/api/chat', chatRouter);
