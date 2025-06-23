@@ -51,7 +51,7 @@ function socketHandler(io) {
   // }
 
   // Debug log
-  console.log('Sent message from', senderId, 'to', receiverId);
+  // console.log('Sent message from', senderId, 'to', receiverId);
 
     socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
       const group = await Group.findById(groupId);
