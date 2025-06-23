@@ -34,7 +34,8 @@ function socketHandler(io) {
     });
 
     socket.on('sendMessage', async ({ senderId, receiverId, message }) => {
-      const chatData = { senderId, receiverId, message, timestamp: new Date() };
+      const chatData = { senderId, receiverId, message, timestamp: new Date(),
+      };
       await Chat.create(chatData);
 
       const receiverSocket = onlineUsers[receiverId];
@@ -42,6 +43,15 @@ function socketHandler(io) {
         io.to(receiverSocket).emit('receiveMessage', chatData);
       }
     });
+
+     // Echo back to sender
+  // const senderSocket = onlineUsers[senderId];
+  // if (senderSocket) {
+  //   io.to(senderSocket).emit('receiveMessage', chatData);
+  // }
+
+  // Debug log
+  console.log('Sent message from', senderId, 'to', receiverId);
 
     socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
       const group = await Group.findById(groupId);

@@ -11,7 +11,7 @@ const groupRouter = require("./src/routes/groupRouter");
 const chatRouter = require("./src/routes/chatRouter");
 const { setSocketIo } = require('./src/controllers/groupController');
 const groupChatRouter = require("./src/routes/groupChatRouter");
-
+const path = require("path");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -29,6 +29,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/chatGroup', groupChatRouter);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // serve files statically
+
 // // Store connected users
 // let onlineUsers = {};
 

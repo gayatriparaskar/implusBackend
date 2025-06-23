@@ -10,9 +10,19 @@ module.exports.createGroup= async (req, res) => {
   try {
     const { name, members, admins } = req.body;
 // Convert strings to ObjectIds
+    const creatorId = req.userId; // ✅ Assuming you extract this from JWT or session
     const memberIds = members.map(id => new ObjectId(id));
     const adminIds = admins.map(id => new ObjectId(id));
 
+     // ✅ Include creator in members if not already
+    if (!memberIds.some(id => id.equals(creatorId))) {
+      memberIds.push(new ObjectId(creatorId));
+    }
+
+    // ✅ Include creator in admins if not already
+    if (!adminIds.some(id => id.equals(creatorId))) {
+      adminIds.push(new ObjectId(creatorId));
+    }
     const group = await GroupModel.create({
       name,
       members: memberIds,
