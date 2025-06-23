@@ -5,6 +5,8 @@ const ObjectId = mongoose.Types.ObjectId;
 const GroupModel = require ("../models/Group");
 const GroupChatModel = require("../models/GroupChat");
 
+const { onlineUsers } = require('../socket/socket');
+
 // app.post('/groups', async (req, res) => {
 module.exports.createGroup= async (req, res) => {
   try {
@@ -30,12 +32,19 @@ module.exports.createGroup= async (req, res) => {
         memberIds.push(adminId); // ✅ Add missing admin to members
       }
     });
-    
+
     const group = await GroupModel.create({
       name,
       members: memberIds,
       admins: adminIds
     });
+    // ✅ Emit to online members
+     memberIds.forEach((memberId) => {
+    const socketId = onlineUsers[memberId.toString()];
+    if (socketId) {
+      io.to(socketId).emit("chatListUpdate");
+    }
+  });
     
     // res.status(200)
     // .json(successResponse,"Group is created",group);

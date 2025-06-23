@@ -41,17 +41,14 @@ function socketHandler(io) {
       const receiverSocket = onlineUsers[receiverId];
       if (receiverSocket) {
         io.to(receiverSocket).emit('receiveMessage', chatData);
+        io.to(receiverSocket).emit('chatListUpdate'); // 🔁 real-time update
       }
+
+       const senderSocket = onlineUsers[senderId];
+  if (senderSocket) {
+   io.to(senderSocket).emit('chatListUpdate'); // 🔁 update for sender
+  }
     });
-
-     // Echo back to sender
-  // const senderSocket = onlineUsers[senderId];
-  // if (senderSocket) {
-  //   io.to(senderSocket).emit('receiveMessage', chatData);
-  // }
-
-  // Debug log
-  // console.log('Sent message from', senderId, 'to', receiverId);
 
     socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
       const group = await Group.findById(groupId);
