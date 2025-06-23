@@ -7,6 +7,7 @@ const GroupModel = require("../models/Group");
 const { ObjectId } = require("mongoose").Types;
 
 const { onlineUsers } = require("../socket/socket");
+const { login } = require("./AuthController");
 
 // app.get('/messages/:user1/:user2', async (req, res) => {
 module.exports.sendMessage = async (req, res) => {
@@ -54,12 +55,15 @@ module.exports.getchatList = async (req, res) => {
       "_id userName dp status_message display_name nick_name email_id last_seen"
     );
 
+    
     // Step 4: Fetch groups where user is a member
-    const groups = await GroupModel.find({ members: userId }).select(
+    const groups = await GroupModel.find({ members: new ObjectId(userId)  }).select(
       "_id name image members group_status_message"
     );
 
-    // Step 5: Format user contacts
+   console.log("groups",groups);
+   
+     // Step 5: Format user contacts
     const formattedContacts = await Promise.all(
       contactDetails.map(async (user) => {
         const otherUserId = user._id.toString();

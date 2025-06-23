@@ -5,7 +5,7 @@ const { register, login , verifyOtp , resendOtp } = require("../controllers/Auth
  const { getAllUsers, getProfile ,updateUser ,deleteUser , searchUserByPhone} = require("../controllers/userController");
  
 authRoutes.post("/register", register);
-authRoutes.post("/login", login);
+// authRoutes.post("/login", login);
 authRoutes.post("/verifyOtp", verifyOtp);
 authRoutes.post("/resendOtp", resendOtp);
 authRoutes.get("/getAllUsers", getAllUsers);

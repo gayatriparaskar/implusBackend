@@ -125,66 +125,6 @@ This OTP is valid for 1 minute Only ! Thank You Team IamPlus.`
   }
 };
 
-module.exports.login = async (req, res) => {
-  const{phone_number}  = req.body;
-
-  try {
-    const user = await UserModel.findOne({ phone_number });
-    console.log("📞 Phone number provided:", phone_number);
-    
-    //  const otp = generateOTP();
-    // otpStore.set(phone_number, {
-    //   otp,
-    //   expiresAt: Date.now() + 5 * 60 * 1000, // 5 mins expiry
-    // });
-    // console.log(`✅ OTP for ${phone_number}:`, otp);
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Username not found" });
-    }
-
-    // const isPasswordValid = await user.comparePassword(password);
-    // if (!isPasswordValid) {
-    //   return res
-    //     .status(401)
-    //     .json({ success: false, error: "Incorrect password" });
-    // }
-
-    const token = generateToken(user._id);
-
-    res.status(200).json({
-      success: true,
-      message: "Login successful",
-      user: {
-        id: user._id,
-        username: user.userName,
-        email: user.email_id,
-        phone: user.phone_number,
-        status_message: user.status_message,
-       nick_name : user.nick_name,  
-        display_name: user.display_name,
-        dp: user.dp,
-        online_status: user.online_status,
-        last_seen: user.last_seen,
-        current_status: user.current_status,
-        connection_chain: user.connection_chain,
-        location: user.location,
-        home: user.home,
-        work: user.work,
-        website: user.website,
-        social_media: user.social_media,
-        circle: user.circle,
-        verified_as: user.verified_as,
-        createdAt: user.createdAt
-      },
-      token
-    });
-  } catch (err) {
-    res.status(500).json((500,"Server error during login", err.message));
-  }
-};
 
 module.exports.verifyOtp = async (req, res) => {
   try {

@@ -13,16 +13,24 @@ module.exports.createGroup= async (req, res) => {
     const creatorId = req.userId; // ✅ Assuming you extract this from JWT or session
     const memberIds = members.map(id => new ObjectId(id));
     const adminIds = admins.map(id => new ObjectId(id));
-
+    const creatorObjId = new ObjectId(creatorId);
      // ✅ Include creator in members if not already
-    if (!memberIds.some(id => id.equals(creatorId))) {
-      memberIds.push(new ObjectId(creatorId));
+    if (!memberIds.some(id => id.equals(creatorObjId))) {
+      memberIds.push(new ObjectId(creatorObjId));
     }
 
     // ✅ Include creator in admins if not already
-    if (!adminIds.some(id => id.equals(creatorId))) {
-      adminIds.push(new ObjectId(creatorId));
+    if (!adminIds.some(id => id.equals(creatorObjId))) {
+      adminIds.push(new ObjectId(creatorObjId));
     }
+
+    // ✅ Make sure every admin is also in members
+    adminIds.forEach((adminId) => {
+      if (!memberIds.some(id => id.equals(adminId))) {
+        memberIds.push(adminId); // ✅ Add missing admin to members
+      }
+    });
+    
     const group = await GroupModel.create({
       name,
       members: memberIds,
