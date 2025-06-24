@@ -39,7 +39,7 @@ function socketHandler(io) {
       await Chat.create(chatData);
 
      // Emit to receiver only
-  const receiverSocketId = onlineUsers.get(receiverId);
+  const receiverSocketId = onlineUsers[receiverId];
   if (receiverSocketId) {
     io.to(receiverSocketId).emit('newMessageReceived', {
       senderId,
@@ -110,7 +110,45 @@ function socketHandler(io) {
   }
 });
 
+    // ✅ ✅ NEW: Mark group messages as read when user opens the group chat
+    socket.on('markGroupMessagesRead', async ({ userId, groupId }) => {
+      try {
+        await GroupChat.updateMany(
+          {
+            groupId,
+            'seenBy.userId': { $ne: userId }
+          },
+          {
+            $push: { seenBy: { userId, timestamp: new Date() } }
+          }
+        );
+        console.log(`Marked messages as read in group ${groupId} for user ${userId}`);
+      } catch (err) {
+        console.error("Failed to mark group messages as read", err);
+      }
+    }); 
 
+
+     // ✅ ✅ NEW: Mark 1-to-1 messages as read
+    socket.on('markMessagesRead', async ({ userId, otherUserId }) => {
+      try {
+        await Chat.updateMany(
+          {
+            senderId: otherUserId,
+            receiverId: userId,
+            read: false
+          },
+          {
+            $set: { read: true }
+          }
+        );
+        console.log(`Marked messages from ${otherUserId} as read by ${userId}`);
+      } catch (err) {
+        console.error("Failed to mark 1-to-1 messages read", err);
+      }
+    });
+
+    
     // ✅ Handle user disconnect and mark offline
     socket.on('disconnect', async () => {
       let disconnectedUserId = null;
