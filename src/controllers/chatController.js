@@ -91,7 +91,7 @@ module.exports.getchatList = async (req, res) => {
         const unreadCount = await chatModel.countDocuments({
           senderId: otherUserId,
           receiverId: userId,
-          read: false,
+          $or: [{ read: false }, { read: { $exists: false } }],
         });
 
         const lastMsgRead =
