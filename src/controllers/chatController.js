@@ -13,6 +13,17 @@ const { login } = require("./AuthController");
 module.exports.sendMessage = async (req, res) => {
   const { user1, user2 } = req.params;
   try {
+     // ✅ Step 1: Mark unread messages from user2 → user1 as read
+    await chatModel.updateMany(
+      {
+        senderId: user2,     // user2 sent the message
+        receiverId: user1,   // user1 is now opening the chat
+        read: false,
+      },
+      { $set: { read: true } }
+    );
+
+    // ✅ Step 2: Fetch all messages between user1 and user2
     const messages = await chatModel
       .find({
         $or: [

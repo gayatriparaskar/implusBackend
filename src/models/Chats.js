@@ -13,6 +13,7 @@ const ChatSchema = new mongoose.Schema({
     enum: ["sent", "delivered", "seen"],
     default: "sent",
   }, // optional
+   read: { type: Boolean, default: false }, // ✅ This must exist
 });
 
 const chatModel = mongoose.model("Chat", ChatSchema);

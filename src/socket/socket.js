@@ -34,7 +34,7 @@ function socketHandler(io) {
     });
 
     socket.on('sendMessage', async ({ senderId, receiverId, message }) => {
-      const chatData = { senderId, receiverId, message, timestamp: new Date(),
+      const chatData = { senderId, receiverId, message, timestamp: new Date(),read :false
       };
       await Chat.create(chatData);
 
