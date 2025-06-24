@@ -91,10 +91,13 @@ function socketHandler(io) {
     group.members.forEach(memberId => {
       const idStr = memberId.toString();
       if (idStr !== senderId.toString()) {
-        const socketId = onlineUsers.get(idStr);
+        const socketId = onlineUsers[idStr];
         if (socketId) {
           io.to(socketId).emit('receiveGroupMessage', savedMsg);
         }
+        console.log("Group members:", group.members.map(m => m.toString()));
+        console.log("Online users:", onlineUsers);
+
       }
     });
 
