@@ -44,7 +44,7 @@ module.exports.sendMessage = async (req, res) => {
 module.exports.getchatList = async (req, res) => {
   try {
     const userId = req.params.userId;
-
+    const markRead = req.query.markRead === "true";
     // Step 1: Fetch all 1-to-1 chats
     const oneOnOne = await chatModel.find({
       $or: [{ senderId: userId }, { receiverId: userId }],
@@ -74,6 +74,36 @@ module.exports.getchatList = async (req, res) => {
 
    console.log("groups",groups);
    
+   
+    // Optional Step 4.5: If markRead is true, mark all messages read/seen
+
+    if (markRead) {
+      // 1-to-1 messages: mark as read
+      await chatModel.updateMany(
+        {
+          receiverId: userId,
+          read: false,
+        },
+        { $set: { read: true } }
+      );
+
+      // Group messages: push user to seenBy
+      await GroupChat.updateMany(
+        {
+          "seenBy.userId": { $ne: userId },
+          groupId: { $in: groups.map((g) => g._id) },
+        },
+        {
+          $push: {
+            seenBy: {
+              userId: userId,
+              timestamp: new Date(),
+            },
+          },
+        }
+      );
+    } 
+    
      // Step 5: Format user contacts
     const formattedContacts = await Promise.all(
       contactDetails.map(async (user) => {
@@ -97,7 +127,7 @@ module.exports.getchatList = async (req, res) => {
         const lastMsgRead =
           !lastMsg ||
           lastMsg.senderId.toString() !== otherUserId ||
-          lastMsg.read;
+          lastMsg.read===true;
 
         return {
           type: "user",

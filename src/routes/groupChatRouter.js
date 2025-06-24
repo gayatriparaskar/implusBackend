@@ -4,7 +4,7 @@ const {sendGroupMessage, getGroupMessages } = require ("../controllers/groupChat
 
 const groupChatRouter = express.Router();
 
-groupChatRouter.post("/sendGroupMsg",sendGroupMessage);
-groupChatRouter.get("/getGroupMsg",getGroupMessages);
+// groupChatRouter.post("/sendGroupMsg",sendGroupMessage);
+groupChatRouter.get("/getGroupMsg/:groupId",getGroupMessages);
 
 module.exports = groupChatRouter ; 
