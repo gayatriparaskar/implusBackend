@@ -13,11 +13,11 @@ const { login } = require("./AuthController");
 module.exports.sendMessage = async (req, res) => {
   const { user1, user2 } = req.params;
   try {
-     // ✅ Step 1: Mark unread messages from user2 → user1 as read
+    // ✅ Step 1: Mark unread messages from user2 → user1 as read
     await chatModel.updateMany(
       {
-        senderId: user2,     // user2 sent the message
-        receiverId: user1,   // user1 is now opening the chat
+        senderId: user2, // user2 sent the message
+        receiverId: user1, // user1 is now opening the chat
         read: false,
       },
       { $set: { read: true } }
@@ -66,15 +66,13 @@ module.exports.getchatList = async (req, res) => {
       "_id userName dp status_message display_name nick_name email_id last_seen"
     );
 
-    
     // Step 4: Fetch groups where user is a member
-    const groups = await GroupModel.find({ members: new ObjectId(userId)  }).select(
-      "_id name image members group_status_message"
-    );
+    const groups = await GroupModel.find({
+      members: new ObjectId(userId),
+    }).select("_id name image members group_status_message");
 
-   console.log("groups",groups);
-   
-   
+    console.log("groups", groups);
+
     // Optional Step 4.5: If markRead is true, mark all messages read/seen
 
     if (markRead) {
@@ -102,9 +100,9 @@ module.exports.getchatList = async (req, res) => {
           },
         }
       );
-    } 
-    
-     // Step 5: Format user contacts
+    }
+
+    // Step 5: Format user contacts
     const formattedContacts = await Promise.all(
       contactDetails.map(async (user) => {
         const otherUserId = user._id.toString();
@@ -127,7 +125,7 @@ module.exports.getchatList = async (req, res) => {
         const lastMsgRead =
           !lastMsg ||
           lastMsg.senderId.toString() !== otherUserId ||
-          lastMsg.read===true;
+          lastMsg.read === true;
 
         return {
           type: "user",

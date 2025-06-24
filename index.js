@@ -12,6 +12,7 @@ const chatRouter = require("./src/routes/chatRouter");
 const { setSocketIo } = require('./src/controllers/groupController');
 const groupChatRouter = require("./src/routes/groupChatRouter");
 const path = require("path");
+const webpush = require('web-push');
 const app = express();
 
 
@@ -43,6 +44,30 @@ const io = new Server(server, {
 setSocketIo(io); // 👈 this will set io inside your controller
 // 👉 Initialize socket logic
 socketHandler(io);
+webpush.setVapidDetails(
+  'mailto:your-email@example.com', // use your actual email
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+// ✅ This route handles user subscription from frontend
+app.post('/subscribe', (req, res) => {
+  const subscription = req.body;
+
+  // You can store this in DB for later use
+  console.log('New Subscription:', subscription);
+
+  const payload = JSON.stringify({
+    title: 'Thanks for Subscribing!',
+    body: 'You will now receive updates from us.',
+  });
+
+  // Send notification
+  webpush.sendNotification(subscription, payload).catch(err => console.error(err));
+
+  res.status(201).json({ message: 'Notification sent' });
+});
+
 
 // // Store connected users
 // let onlineUsers = {};
