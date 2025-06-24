@@ -38,28 +38,75 @@ function socketHandler(io) {
       };
       await Chat.create(chatData);
 
-      const receiverSocket = onlineUsers[receiverId];
-      if (receiverSocket) {
-        io.to(receiverSocket).emit('receiveMessage', chatData);
-        io.to(receiverSocket).emit('chatListUpdate'); // 🔁 real-time update
-      }
-
-       const senderSocket = onlineUsers[senderId];
-  if (senderSocket) {
-   io.to(senderSocket).emit('chatListUpdate'); // 🔁 update for sender
-  }
+     // Emit to receiver only
+  const receiverSocketId = onlineUsers.get(receiverId);
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit('newMessageReceived', {
+      senderId,
+      message,
+      timestamp: new Date()
     });
+  }
+
+  //      const senderSocket = onlineUsers[senderId];
+  // if (senderSocket) {
+  //  io.to(senderSocket).emit('chatListUpdate'); // 🔁 update for sender
+  // }
+    });
+
+    // socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
+    //   const group = await Group.findById(groupId);
+    //   if (!group || !group.members.includes(senderId)) {
+    //     return socket.emit('groupError', { message: "Unauthorized", code: "NOT_MEMBER" });
+    //   }
+
+    //   const chatData = { groupId, senderId, message, messageType, payload, timestamp: new Date() };
+    //   await GroupChat.create(chatData);
+    //   io.to(groupId).emit('receiveGroupMessage', chatData);
+    // });
 
     socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
-      const group = await Group.findById(groupId);
-      if (!group || !group.members.includes(senderId)) {
-        return socket.emit('groupError', { message: "Unauthorized", code: "NOT_MEMBER" });
-      }
+  try {
+    const group = await Group.findById(groupId);
 
-      const chatData = { groupId, senderId, message, messageType, payload, timestamp: new Date() };
-      await GroupChat.create(chatData);
-      io.to(groupId).emit('receiveGroupMessage', chatData);
+    // ✅ Check if sender is part of the group
+    if (!group || !group.members.map(id => id.toString()).includes(senderId.toString())) {
+      return socket.emit('groupError', { message: "Unauthorized", code: "NOT_MEMBER" });
+    }
+
+    // ✅ Create message entry
+    const chatData = {
+      groupId,
+      senderId,
+      message,
+      messageType,
+      payload,
+      timestamp: new Date(),
+      seenBy: [{ userId: senderId, timestamp: new Date() }] // optional
+    };
+
+    const savedMsg = await GroupChat.create(chatData);
+
+    // ✅ Emit to each group member (except sender)
+    group.members.forEach(memberId => {
+      const idStr = memberId.toString();
+      if (idStr !== senderId.toString()) {
+        const socketId = onlineUsers.get(idStr);
+        if (socketId) {
+          io.to(socketId).emit('receiveGroupMessage', savedMsg);
+        }
+      }
     });
+
+    // ✅ Acknowledge sender
+    socket.emit('groupMessageSent', { success: true, data: savedMsg });
+
+  } catch (err) {
+    console.error("Group message error:", err);
+    socket.emit('groupError', { message: "Server error", error: err.message });
+  }
+});
+
 
     // ✅ Handle user disconnect and mark offline
     socket.on('disconnect', async () => {
