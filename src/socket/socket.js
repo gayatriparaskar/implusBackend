@@ -67,44 +67,50 @@ function socketHandler(io) {
 });
 
     // ✅ Group message handling
-    socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = "text", payload = {} }) => {
-      try {
-        const group = await Group.findById(groupId);
-        if (!group || !group.members.includes(senderId)) {
-          return socket.emit('groupError', { message: "Unauthorized", code: "NOT_MEMBER" });
-        }
+  socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = "text", payload = {} }) => {
+  try {
+    console.log("🟢 Incoming group message", { groupId, senderId, message });
 
-        const encryptedMessage = encrypt(message); // assume encrypt is defined
+    const group = await Group.findById(groupId);
+    if (!group || !group.members.includes(senderId)) {
+      console.warn("❌ Unauthorized group access");
+      return socket.emit('groupError', { message: "Unauthorized", code: "NOT_MEMBER" });
+    }
 
-        const chatData = {
-          groupId,
-          senderId,
-          message: encryptedMessage,
-          messageType,
-          payload,
-          timestamp: new Date()
-        };
+    console.log("🔐 Encrypting message...");
+    const encryptedMessage = encrypt(message);
 
-        const savedMsg = await GroupChat.create(chatData);
+    const chatData = {
+      groupId,
+      senderId,
+      message: encryptedMessage,
+      messageType,
+      payload,
+      timestamp: new Date()
+    };
 
-        group.members.forEach(memberId => {
-          const idStr = memberId.toString();
-          const socketId = onlineUsers[idStr];
-          if (socketId) {
-            io.to(socketId).emit('receiveGroupMessage', {
-              ...savedMsg._doc,
-              message // decrypted for frontend
-            });
-          }
+    console.log("💾 Saving group chat:", chatData);
+    const savedMsg = await GroupChat.create(chatData);
+
+    group.members.forEach(memberId => {
+      const idStr = memberId.toString();
+      const socketId = onlineUsers[idStr];
+      if (socketId) {
+        io.to(socketId).emit('receiveGroupMessage', {
+          ...savedMsg._doc,
+          message // decrypted for frontend
         });
-
-        socket.emit('groupMessageSent', { success: true, data: savedMsg });
-        console.log("✅ Encrypted group message saved and emitted");
-      } catch (err) {
-        console.error("❌ Error sending group message:", err.message);
-        socket.emit("groupError", { message: "Internal error", code: "SERVER_ERROR" });
       }
     });
+
+    socket.emit('groupMessageSent', { success: true, data: savedMsg });
+    console.log("✅ Encrypted group message saved and emitted");
+  } catch (err) {
+    console.error("❌ Error sending group message:", err);
+    socket.emit("groupError", { message: "Internal error", code: "SERVER_ERROR" });
+  }
+});
+
 
     // ✅ Mark group messages as read
     socket.on('markGroupMessagesRead', async ({ userId, groupId }) => {
