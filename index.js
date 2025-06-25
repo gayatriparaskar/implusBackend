@@ -45,8 +45,8 @@ setSocketIo(io); // 👈 this will set io inside your controller
 // 👉 Initialize socket logic
 socketHandler(io);
 webpush.setVapidDetails(
-  'mailto:your-email@example.com', // use your actual email
-  process.env.VAPID_PUBLIC_KEY,
+  'mailto:hello@example.com',
+  process.env.VAPID_PUBLIC_KEY,  // ✅ correct order
   process.env.VAPID_PRIVATE_KEY
 );
 
