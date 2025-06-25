@@ -263,6 +263,7 @@ module.exports.getchatList = async (req, res) => {
         const lastGroupMsg = await GroupChat.findOne({
           groupId: group._id,
         }).sort({ timestamp: -1 });
+        
         let decryptedGroupMsg = null;
         if (lastGroupMsg) {
           try {
