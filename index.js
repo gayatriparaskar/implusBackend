@@ -14,7 +14,8 @@ const groupChatRouter = require("./src/routes/groupChatRouter");
 const path = require("path");
 const webpush = require('web-push');
 const app = express();
-
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
 app.use(cors());
 app.use(express.json());
@@ -46,8 +47,8 @@ setSocketIo(io); // 👈 this will set io inside your controller
 socketHandler(io);
 webpush.setVapidDetails(
   'mailto:hello@example.com',
-  process.env.VAPID_PUBLIC_KEY,  // ✅ correct order
-  process.env.VAPID_PRIVATE_KEY
+  vapidPublicKey,       // ✅ public key first
+  vapidPrivateKey       // ✅ private key second
 );
 
 // ✅ This route handles user subscription from frontend
