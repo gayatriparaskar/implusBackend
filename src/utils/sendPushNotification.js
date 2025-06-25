@@ -1,11 +1,14 @@
 // src/utils/sendPushNotification.js
 const webPush = require('web-push');
 const User = require('../models/Auth');
-
+const dotenv = require('dotenv');
+dotenv.config();
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 webPush.setVapidDetails(
   'mailto:hello@example.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
+  vapidPublicKey,
+  vapidPrivateKey
 );
 
 async function sendPushNotification(userId, data) {

@@ -3,7 +3,7 @@ const Chat = require("../models/Chats");
 const GroupChat = require("../models/GroupChat");
 const Group = require("../models/Group");
 const User = require("../models/Auth");
-const { sendPushNotification } = require('./src/utils/sendPushNotification');
+const { sendPushNotification } = require('../utils/sendPushNotification');
 const { encrypt, decrypt } = require("../utils/encryption");
 
 const onlineUsers = {};
