@@ -121,12 +121,17 @@ function socketHandler(io) {
           // });
 
           // With this:
-          io.to(groupId).emit("receiveGroupMessage", {
+          // io.to(groupId).emit("receiveGroupMessage", {
+          //   ...savedMsg._doc,
+          //   message, // decrypted for frontend
+          // });
+
+          socket.to(groupId).emit("receiveGroupMessage", {
             ...savedMsg._doc,
-            message, // decrypted for frontend
+            message,
           });
 
-          socket.emit("groupMessageSent", { success: true, data: savedMsg });
+          socket.emit("groupMessageSent", { success: true, data: savedMsg._doc,message });
           console.log("✅ Encrypted group message saved and emitted");
         } catch (err) {
           console.error("❌ Error sending group message:", err);
