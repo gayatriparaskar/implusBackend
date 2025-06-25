@@ -4,7 +4,10 @@ const GroupChat = require('../models/GroupChat');
 const Group = require('../models/Group');
 const User = require('../models/Auth');
 
+const { encrypt, decrypt } = require("../utils/encryption");
+
 const onlineUsers = {};
+
 
 async function updateUserOnlineStatus(userId, status) {
   await User.findByIdAndUpdate(userId, {
