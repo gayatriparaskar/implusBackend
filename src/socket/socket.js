@@ -47,24 +47,10 @@ function socketHandler(io) {
       receiverId, // ✅ Add this
       timestamp: new Date()
     });
-  }
+   }
+  });
 
-  //      const senderSocket = onlineUsers[senderId];
-  // if (senderSocket) {
-  //  io.to(senderSocket).emit('chatListUpdate'); // 🔁 update for sender
-  // }
-    });
-
-    // socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
-    //   const group = await Group.findById(groupId);
-    //   if (!group || !group.members.includes(senderId)) {
-    //     return socket.emit('groupError', { message: "Unauthorized", code: "NOT_MEMBER" });
-    //   }
-
-    //   const chatData = { groupId, senderId, message, messageType, payload, timestamp: new Date() };
-    //   await GroupChat.create(chatData);
-    //   io.to(groupId).emit('receiveGroupMessage', chatData);
-    // });
+    
 
     socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType, payload }) => {
   try {
@@ -119,6 +105,8 @@ function socketHandler(io) {
     socket.emit('groupError', { message: "Server error", error: err.message });
   }
 });
+
+
 
     // ✅ ✅ NEW: Mark group messages as read when user opens the group chat
     socket.on('markGroupMessagesRead', async ({ userId, groupId }) => {
