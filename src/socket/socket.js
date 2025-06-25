@@ -44,6 +44,7 @@ function socketHandler(io) {
     io.to(receiverSocketId).emit('newMessageReceived', {
       senderId,
       message,
+      receiverId, // ✅ Add this
       timestamp: new Date()
     });
   }
