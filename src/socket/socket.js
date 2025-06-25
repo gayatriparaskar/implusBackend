@@ -134,7 +134,7 @@ function socketHandler(io) {
           socket.emit("groupMessageSent", { success: true, data: savedMsg._doc,message });
           console.log("✅ Encrypted group message saved and emitted");
         } catch (err) {
-          console.error("❌ Error sending group message:", err);
+          console.error("❌ Error sending group message chat:", err);
           socket.emit("groupError", {
             message: "Internal error",
             code: "SERVER_ERROR",
