@@ -302,7 +302,7 @@ module.exports.getchatList = async (req, res) => {
           ...group._doc,
           lastMsg: decryptedGroupMsg,
           lastMsgAt: decryptedGroupMsg ? decryptedGroupMsg.timestamp : group.createdAt,
-          last_activity: decryptedGroupMsg ? decryptedGroupMsg.timestamp : null,
+          last_activity: decryptedGroupMsg ? decryptedGroupMsg.timestamp : group.createdAt,
 
           group_status_message:
             group.group_status_message || "No group status set",
