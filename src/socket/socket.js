@@ -89,18 +89,27 @@ function socketHandler(io) {
     const savedMsg = await GroupChat.create(chatData);
 
     // ✅ Emit to each group member (except sender)
-    group.members.forEach(memberId => {
-      const idStr = memberId.toString();
-      if (idStr !== senderId.toString()) {
-        const socketId = onlineUsers[idStr];
-        if (socketId) {
-          io.to(socketId).emit('receiveGroupMessage', savedMsg);
-        }
-        console.log("Group members:", group.members.map(m => m.toString()));
-        console.log("Online users:", onlineUsers);
+    // group.members.forEach(memberId => {
+    //   const idStr = memberId.toString();
+    //   if (idStr !== senderId.toString()) {
+    //     const socketId = onlineUsers[idStr];
+    //     if (socketId) {
+    //       io.to(socketId).emit('receiveGroupMessage', savedMsg);
+    //     }
+    //     console.log("Group members:", group.members.map(m => m.toString()));
+    //     console.log("Online users:", onlineUsers);
 
-      }
-    });
+    //   }
+    // });
+
+    group.members.forEach(memberId => {
+  const idStr = memberId.toString();
+  const socketId = onlineUsers[idStr];
+
+  if (socketId) {
+    io.to(socketId).emit('receiveGroupMessage', savedMsg); // ✅ Send to all including sender
+  }
+});
 
     // ✅ Acknowledge sender
     socket.emit('groupMessageSent', { success: true, data: savedMsg });
