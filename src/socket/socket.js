@@ -33,26 +33,38 @@ function socketHandler(io) {
       console.log(`User joined group ${groupId}`);
     });
 
-    socket.on('sendMessage', async ({ senderId, receiverId, message }) => {
-      const chatData = {
-        senderId,
-        receiverId,
-        message,
-        timestamp: new Date(),
-        read: false
-      };
-      await Chat.create(chatData);
+  socket.on('sendMessage', async ({ senderId, receiverId, message }) => {
+  const chatData = {
+    senderId,
+    receiverId,
+    message,
+    timestamp: new Date(),
+    read: false
+  };
 
-      const receiverSocketId = onlineUsers[receiverId];
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('newMessageReceived', {
-          senderId,
-          message,
-          receiverId,
-          timestamp: new Date()
-        });
-      }
+  const savedMsg = await Chat.create(chatData);
+
+  const receiverSocketId = onlineUsers[receiverId];
+
+  if (receiverSocketId) {
+    // ✅ Emit actual chat message to receiver
+    io.to(receiverSocketId).emit('newMessageReceived', {
+      senderId,
+      receiverId,
+      message,
+      timestamp: savedMsg.timestamp
     });
+
+    // ✅ Emit a lightweight notification to update chat list
+    io.to(receiverSocketId).emit('newUnreadMessage', {
+      from: senderId,
+      message,
+      timestamp: savedMsg.timestamp
+    });
+  }
+
+  // (Optional) Push notification fallback if not online
+});
 
     // ✅ Group message handling
     socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = "text", payload = {} }) => {
