@@ -16,7 +16,7 @@ const webpush = require('web-push');
 const app = express();
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-
+const saveSubscriptionRoute = require("./src/routes/saveSubscription");
 app.use(cors());
 app.use(express.json());
 connectDB();
@@ -36,7 +36,7 @@ app.use('/api/chat', chatRouter);
 app.use('/api/chatGroup', groupChatRouter);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // serve files statically
-
+app.use('/api/save-subscription', saveSubscriptionRoute);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -45,29 +45,30 @@ const io = new Server(server, {
 setSocketIo(io); // 👈 this will set io inside your controller
 // 👉 Initialize socket logic
 socketHandler(io);
-webpush.setVapidDetails(
-  'mailto:hello@example.com',
-  vapidPublicKey,       // ✅ public key first
-  vapidPrivateKey       // ✅ private key second
-);
+// webpush.setVapidDetails(
+//   'mailto:hello@example.com',
+//   vapidPublicKey,       // ✅ public key first
+//   vapidPrivateKey       // ✅ private key second
+// );
 
-// ✅ This route handles user subscription from frontend
-app.post('/subscribe', (req, res) => {
-  const subscription = req.body;
+// // ✅ This route handles user subscription from frontend
+// app.post('/subscribe', (req, res) => {
+//   const subscription = req.body;
 
-  // You can store this in DB for later use
-  console.log('New Subscription:', subscription);
+//   // You can store this in DB for later use
+//   console.log('New Subscription:', subscription);
 
-  const payload = JSON.stringify({
-    title: 'Thanks for Subscribing!',
-    body: 'You will now receive updates from us.',
-  });
+//   const payload = JSON.stringify({
+//     title: 'Thanks for Subscribing!',
+//     body: 'You will now receive updates from us.',
+//   });
 
-  // Send notification
-  webpush.sendNotification(subscription, payload).catch(err => console.error(err));
+//   // Send notification
+//   webpush.sendNotification(subscription, payload).catch(err => console.error(err));
 
-  res.status(201).json({ message: 'Notification sent' });
-});
+//   res.status(201).json({ message: 'Notification sent' });
+// });
+
 
 server.listen(5000, () => {
   console.log('Server running on port 5000');
