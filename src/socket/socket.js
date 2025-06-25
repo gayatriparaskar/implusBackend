@@ -115,7 +115,7 @@ function socketHandler(io) {
     socket.emit('groupMessageSent', { success: true, data: savedMsg });
 
   } catch (err) {
-    console.error("Group message error:", err);
+    console.error("Group message error shown:", err);
     socket.emit('groupError', { message: "Server error", error: err.message });
   }
 });
