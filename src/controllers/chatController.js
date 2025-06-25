@@ -10,7 +10,6 @@ const { onlineUsers } = require("../socket/socket");
 const { login } = require("./AuthController");
 const { encrypt, decrypt } = require("../utils/encryption");
 
-
 // app.get('/messages/:user1/:user2', async (req, res) => {
 // module.exports.sendMessage = async (req, res) => {
 //   const { user1, user2 } = req.params;
@@ -42,8 +41,6 @@ const { encrypt, decrypt } = require("../utils/encryption");
 //   }
 // };
 
-
-
 module.exports.sendMessage = async (req, res) => {
   const { user1, user2 } = req.params;
   const { message } = req.body;
@@ -57,7 +54,7 @@ module.exports.sendMessage = async (req, res) => {
       message: encryptedMessage,
     });
 
-     res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Message sent",
       data: newMsg,
@@ -67,9 +64,6 @@ module.exports.sendMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to send message" });
   }
 };
-
-
-
 
 module.exports.getMessages = async (req, res) => {
   const { user1, user2 } = req.params;
@@ -101,30 +95,34 @@ module.exports.getMessages = async (req, res) => {
 
     // ✅ Decrypt each message
     const decryptedMessages = messages.map((msg) => {
-  try {
-    // Basic format check before trying to decrypt
-    if (!msg.message.includes(":")) {
-      console.warn("⚠️ Skipping unencrypted message:", msg.message);
-      return {
-        ...msg._doc,
-        message: msg.message, // return plain text fallback
-      };
-    }
+      try {
+        // Basic format check before trying to decrypt
+        if (!msg.message.includes(":")) {
+          console.warn("⚠️ Skipping unencrypted message:", msg.message);
+          return {
+            ...msg._doc,
+            message: msg.message, // return plain text fallback
+          };
+        }
 
-    const decrypted = decrypt(msg.message);
-    return {
-      ...msg._doc,
-      message: decrypted || "[Encrypted format error]",
-    };
-  } catch (err) {
-    console.error("❌ Decryption failed:", err.message, "Raw:", msg.message);
-    return {
-      ...msg._doc,
-      message: "[Failed to decrypt]",
-    };
-  }
-});
-
+        const decrypted = decrypt(msg.message);
+        return {
+          ...msg._doc,
+          message: decrypted || "[Encrypted format error]",
+        };
+      } catch (err) {
+        console.error(
+          "❌ Decryption failed:",
+          err.message,
+          "Raw:",
+          msg.message
+        );
+        return {
+          ...msg._doc,
+          message: "[Failed to decrypt]",
+        };
+      }
+    });
 
     // ✅ Send response
     res.status(200).json({
@@ -138,10 +136,6 @@ module.exports.getMessages = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch messages" });
   }
 };
-
-
-
-
 
 // get chat list all
 module.exports.getchatList = async (req, res) => {
@@ -219,6 +213,23 @@ module.exports.getchatList = async (req, res) => {
           })
           .sort({ timestamp: -1 });
 
+        let decryptedLastMsg = null;
+        if (lastMsg) {
+          try {
+            decryptedLastMsg = {
+              ...lastMsg._doc,
+              message: lastMsg.message.includes(":")
+                ? decrypt(lastMsg.message)
+                : lastMsg.message,
+            };
+          } catch (err) {
+            decryptedLastMsg = {
+              ...lastMsg._doc,
+              message: "[Failed to decrypt]",
+            };
+          }
+        }
+
         const unreadCount =
           markRead === true
             ? 0
@@ -237,8 +248,9 @@ module.exports.getchatList = async (req, res) => {
           type: "user",
           ...user._doc,
           online: !!onlineUsers[otherUserId], // You must define `onlineUsers` from sockets
-          lastMsg,
-          lastMsgAt: lastMsg ? lastMsg.timestamp : null,
+          lastMsg: decryptedLastMsg,
+          lastMsgAt: decryptedLastMsg ? decryptedLastMsg.timestamp : null,
+
           lastMsgRead,
           unreadCount,
         };
@@ -251,6 +263,22 @@ module.exports.getchatList = async (req, res) => {
         const lastGroupMsg = await GroupChat.findOne({
           groupId: group._id,
         }).sort({ timestamp: -1 });
+        let decryptedGroupMsg = null;
+        if (lastGroupMsg) {
+          try {
+            decryptedGroupMsg = {
+              ...lastGroupMsg._doc,
+              message: lastGroupMsg.message.includes(":")
+                ? decrypt(lastGroupMsg.message)
+                : lastGroupMsg.message,
+            };
+          } catch (err) {
+            decryptedGroupMsg = {
+              ...lastGroupMsg._doc,
+              message: "[Failed to decrypt]",
+            };
+          }
+        }
 
         const unreadCount = await GroupChat.countDocuments({
           groupId: group._id,
@@ -271,9 +299,10 @@ module.exports.getchatList = async (req, res) => {
         return {
           type: "group",
           ...group._doc,
-          lastMsg: lastGroupMsg || null,
-          lastMsgAt: lastGroupMsg ? lastGroupMsg.timestamp : null,
-          last_activity: lastGroupMsg ? lastGroupMsg.timestamp : null,
+          lastMsg: decryptedGroupMsg,
+          lastMsgAt: decryptedGroupMsg ? decryptedGroupMsg.timestamp : null,
+          last_activity: decryptedGroupMsg ? decryptedGroupMsg.timestamp : null,
+
           group_status_message:
             group.group_status_message || "No group status set",
           lastMsgRead,
@@ -299,4 +328,3 @@ module.exports.getchatList = async (req, res) => {
   }
 };
 // // both code is merged
-
