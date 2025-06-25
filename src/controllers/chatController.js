@@ -101,20 +101,30 @@ module.exports.getMessages = async (req, res) => {
 
     // ✅ Decrypt each message
     const decryptedMessages = messages.map((msg) => {
-      try {
-        const decrypted = decrypt(msg.message);
-        return {
-          ...msg._doc,
-          message: decrypted,
-        };
-      } catch (err) {
-        console.error("❌ Decryption failed:", err.message);
-        return {
-          ...msg._doc,
-          message: "[Failed to decrypt]",
-        };
-      }
-    });
+  try {
+    // Basic format check before trying to decrypt
+    if (!msg.message.includes(":")) {
+      console.warn("⚠️ Skipping unencrypted message:", msg.message);
+      return {
+        ...msg._doc,
+        message: msg.message, // return plain text fallback
+      };
+    }
+
+    const decrypted = decrypt(msg.message);
+    return {
+      ...msg._doc,
+      message: decrypted || "[Encrypted format error]",
+    };
+  } catch (err) {
+    console.error("❌ Decryption failed:", err.message, "Raw:", msg.message);
+    return {
+      ...msg._doc,
+      message: "[Failed to decrypt]",
+    };
+  }
+});
+
 
     // ✅ Send response
     res.status(200).json({
