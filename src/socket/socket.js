@@ -44,6 +44,7 @@ function socketHandler(io) {
     io.to(receiverSocketId).emit('newMessageReceived', {
       senderId,
       message,
+      receiverId, // ✅ Add this
       timestamp: new Date()
     });
    }
@@ -97,7 +98,7 @@ function socketHandler(io) {
 // });
 
 
-ocket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = "text", payload = {} }) => {
+socket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = "text", payload = {} }) => {
   try {
     const group = await Group.findById(groupId);
     if (!group || !group.members.includes(senderId)) {
@@ -116,6 +117,7 @@ ocket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = 
       timestamp: new Date()
     };
 
+
     const saved = await GroupChat.create(chatData);
 
     // ✅ Emit to group with decrypted message (for frontend use)
@@ -130,6 +132,39 @@ ocket.on('sendGroupMessage', async ({ groupId, senderId, message, messageType = 
       socket.emit("groupError", { message: "Internal error", code: "SERVER_ERROR" });
     }
   });
+    const savedMsg = await GroupChat.create(chatData);
+
+    // ✅ Emit to each group member (except sender)
+    // group.members.forEach(memberId => {
+    //   const idStr = memberId.toString();
+    //   if (idStr !== senderId.toString()) {
+    //     const socketId = onlineUsers[idStr];
+    //     if (socketId) {
+    //       io.to(socketId).emit('receiveGroupMessage', savedMsg);
+    //     }
+    //     console.log("Group members:", group.members.map(m => m.toString()));
+    //     console.log("Online users:", onlineUsers);
+
+    //   }
+    // });
+
+    group.members.forEach(memberId => {
+  const idStr = memberId.toString();
+  const socketId = onlineUsers[idStr];
+
+  if (socketId) {
+    io.to(socketId).emit('receiveGroupMessage', savedMsg); // ✅ Send to all including sender
+  }
+});
+
+    // ✅ Acknowledge sender
+    socket.emit('groupMessageSent', { success: true, data: savedMsg });
+
+  } catch (err) {
+    console.error("Group message error shown:", err);
+    socket.emit('groupError', { message: "Server error", error: err.message });
+  }
+});
 
 
 
