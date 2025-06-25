@@ -3,7 +3,7 @@ const Chat = require("../models/Chats");
 const GroupChat = require("../models/GroupChat");
 const Group = require("../models/Group");
 const User = require("../models/Auth");
-
+const { sendPushNotification } = require('./src/utils/sendPushNotification');
 const { encrypt, decrypt } = require("../utils/encryption");
 
 const onlineUsers = {};
@@ -63,7 +63,14 @@ function socketHandler(io) {
           message,
           timestamp: savedMsg.timestamp,
         });
-      }
+      } else {
+    // ✅ Push Notification if user is offline
+    await sendPushNotification(receiverId, {
+      title: 'New Message',
+      body: message,
+      url: `/chat/${senderId}`
+    });
+  }
 
       // (Optional) Push notification fallback if not online
     });
@@ -133,6 +140,19 @@ function socketHandler(io) {
 
           socket.emit("groupMessageSent", { success: true, data: savedMsg._doc,message });
           console.log("✅ Encrypted group message saved and emitted");
+           // ✅ Send Push Notifications to offline members (excluding sender)
+      for (const memberId of group.members) {
+        const idStr = memberId.toString();
+        const socketId = onlineUsers[idStr];
+
+        if (!socketId && idStr !== senderId) {
+          await sendPushNotification(idStr, {
+            title: `New message in ${group.name}`,
+            body: message,
+            url: `/group/${groupId}`, // Adjust if your frontend uses a different path
+          });
+        }
+      }
         } catch (err) {
           console.error("❌ Error sending group message chat:", err);
           socket.emit("groupError", {
