@@ -263,7 +263,7 @@ module.exports.getchatList = async (req, res) => {
         const lastGroupMsg = await GroupChat.findOne({
           groupId: group._id,
         }).sort({ timestamp: -1 });
-        
+
         let decryptedGroupMsg = null;
         if (lastGroupMsg) {
           try {
@@ -301,7 +301,7 @@ module.exports.getchatList = async (req, res) => {
           type: "group",
           ...group._doc,
           lastMsg: decryptedGroupMsg,
-          lastMsgAt: decryptedGroupMsg ? decryptedGroupMsg.timestamp : null,
+          lastMsgAt: decryptedGroupMsg ? decryptedGroupMsg.timestamp : group.createdAt,
           last_activity: decryptedGroupMsg ? decryptedGroupMsg.timestamp : null,
 
           group_status_message:
