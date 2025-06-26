@@ -22,6 +22,14 @@ const userSchema = new mongoose.Schema({
   social_media: [{type:String, default:"IamPlus"}],
   circle: [{type:String, default:"IamPlus"}],
   verified_as: [{type:String, default:"IamPlus"}], // e.g. ["email", "phone", "aadhar"]
+   // 👇 Add this field for push subscription
+  subscription: {
+    endpoint: { type: String },
+    keys: {
+      p256dh: { type: String },
+      auth: { type: String }
+    }
+  }
 });
 
 
