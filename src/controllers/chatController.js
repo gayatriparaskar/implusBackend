@@ -386,7 +386,7 @@ module.exports.markMessagesAsRead = async (req, res) => {
         ],
       },
       {
-        $push: {
+        $addToSet: {
           seenBy: {
             userId: new ObjectId(userId),
             timestamp: new Date(),
