@@ -43,8 +43,17 @@ function socketHandler(io) {
         timestamp: new Date(),
         read: false,
       };
+ 
 
       const savedMsg = await Chat.create(chatData);
+      if(chatData){
+         console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
+         await sendPushNotification(receiverId, {
+      title: 'New Message',
+      body: message,
+      url: `/chat/${senderId}`
+    });
+      }
 
       const receiverSocketId = onlineUsers[receiverId];
 
@@ -56,6 +65,11 @@ function socketHandler(io) {
           message,
           timestamp: savedMsg.timestamp,
         });
+        await sendPushNotification(receiverId, {
+      title: 'New Message',
+      body: message,
+      url: `/chat/${senderId}`
+    });
 
         // ✅ Emit a lightweight notification to update chat list
         io.to(receiverSocketId).emit("newUnreadMessage", {
@@ -63,6 +77,7 @@ function socketHandler(io) {
           message,
           timestamp: savedMsg.timestamp,
         });
+        
       } else {
     // ✅ Push Notification if user is offline
     await sendPushNotification(receiverId, {
@@ -146,6 +161,7 @@ function socketHandler(io) {
         const socketId = onlineUsers[idStr];
 
         if (!socketId && idStr !== senderId) {
+              // console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
           await sendPushNotification(idStr, {
             title: `New message in ${group.name}`,
             body: message,

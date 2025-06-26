@@ -22,6 +22,7 @@ async function sendPushNotification(userId, data) {
       url: data.url || '/', // fallback to homepage
     });
     console.log(data.body);
+    console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn");
     
 
     await webPush.sendNotification(user.subscription, payload);
