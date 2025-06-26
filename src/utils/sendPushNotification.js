@@ -15,7 +15,7 @@ async function sendPushNotification(userId, data) {
     console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn2");
   try {
     const user = await User.findById(userId);
-    if (!user?.subscription) return;
+    // if (!user?.subscription) return;
 
     const payload = JSON.stringify({
       title: data.title,
