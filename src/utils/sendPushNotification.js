@@ -12,6 +12,7 @@ webPush.setVapidDetails(
 );
 
 async function sendPushNotification(userId, data) {
+    console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn2");
   try {
     const user = await User.findById(userId);
     if (!user?.subscription) return;
@@ -28,6 +29,7 @@ async function sendPushNotification(userId, data) {
     await webPush.sendNotification(user.subscription, payload);
   } catch (err) {
     console.error('🔴 Push notification error:', err.message);
+      console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnERROR");
   }
 }
 
