@@ -200,7 +200,7 @@ module.exports.getchatList = async (req, res) => {
           ],
         },
         {
-          $addToSet: {
+          $push: {
             seenBy: {
               userId: new ObjectId(userId),
               timestamp: new Date(),
@@ -291,25 +291,21 @@ module.exports.getchatList = async (req, res) => {
             };
           }
         }
-
-        const unreadCount =
-          markRead === true
-            ? 0
-            : await GroupChat.countDocuments({
-                groupId: group._id,
-                $or: [
-                  { seenBy: { $exists: false } },
-                  {
-                    seenBy: {
-                      $not: {
-                        $elemMatch: {
-                          userId: new ObjectId(userId),
-                        },
-                      },
-                    },
+        const unreadCount = await GroupChat.countDocuments({
+          groupId: group._id,
+          $or: [
+            { seenBy: { $exists: false } }, // no seenBy at all
+            {
+              seenBy: {
+                $not: {
+                  $elemMatch: {
+                    userId: new ObjectId(userId),
                   },
-                ],
-              });
+                },
+              },
+            },
+          ],
+        });
 
         let lastMsgRead = true;
         if (
