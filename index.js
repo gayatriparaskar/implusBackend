@@ -24,6 +24,8 @@ connectDB();
 
 app.get("/", async (req, res) => {
     
+      console.log(res);
+      
       res.status(200).json({
         success: "Hello from the server",
         message: "Server is running perfectly",
