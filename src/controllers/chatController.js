@@ -185,13 +185,24 @@ module.exports.getchatList = async (req, res) => {
       // Group messages: push user to seenBy
       await GroupChat.updateMany(
         {
-          "seenBy.userId": { $ne: userId },
           groupId: { $in: groups.map((g) => g._id) },
+          $or: [
+            { seenBy: { $exists: false } },
+            {
+              seenBy: {
+                $not: {
+                  $elemMatch: {
+                    userId: new ObjectId(userId),
+                  },
+                },
+              },
+            },
+          ],
         },
         {
           $push: {
             seenBy: {
-              userId: userId,
+              userId: new ObjectId(userId),
               timestamp: new Date(),
             },
           },
@@ -280,10 +291,20 @@ module.exports.getchatList = async (req, res) => {
             };
           }
         }
-
         const unreadCount = await GroupChat.countDocuments({
           groupId: group._id,
-          "seenBy.userId": { $ne: userId },
+          $or: [
+            { seenBy: { $exists: false } }, // no seenBy at all
+            {
+              seenBy: {
+                $not: {
+                  $elemMatch: {
+                    userId: new ObjectId(userId),
+                  },
+                },
+              },
+            },
+          ],
         });
 
         let lastMsgRead = true;
@@ -301,8 +322,12 @@ module.exports.getchatList = async (req, res) => {
           type: "group",
           ...group._doc,
           lastMsg: decryptedGroupMsg,
-          lastMsgAt: decryptedGroupMsg ? decryptedGroupMsg.timestamp : group.createdAt,
-          last_activity: decryptedGroupMsg ? decryptedGroupMsg.timestamp : group.createdAt,
+          lastMsgAt: decryptedGroupMsg
+            ? decryptedGroupMsg.timestamp
+            : group.createdAt,
+          last_activity: decryptedGroupMsg
+            ? decryptedGroupMsg.timestamp
+            : group.createdAt,
 
           group_status_message:
             group.group_status_message || "No group status set",
