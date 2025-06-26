@@ -241,7 +241,7 @@ module.exports.resendOtp = async (req, res) => {
     console.error("❌ Resend OTP Error:", error);
     return res
       .status(500)
-      .json(errorResponse(500, "Server error", error.message));
+      .json(errorResponse(500, "Server error is this :", error.message));
   }
 };
 
