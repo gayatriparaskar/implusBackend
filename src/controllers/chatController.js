@@ -241,14 +241,11 @@ module.exports.getchatList = async (req, res) => {
           }
         }
 
-        // const unreadCount =
-        //   markRead === true
-        //     ? 0
-        //     : await chatModel.countDocuments({
-        //         senderId: otherUserId,
-        //         receiverId: userId,
-        //         $or: [{ read: false }, { read: { $exists: false } }],
-        //       });
+        const unreadCount = await chatModel.countDocuments({
+          senderId: otherUserId,
+          receiverId: userId,
+          $or: [{ read: false }, { read: { $exists: false } }],
+        });
 
         const lastMsgRead =
           !lastMsg ||
@@ -332,7 +329,7 @@ module.exports.getchatList = async (req, res) => {
           group_status_message:
             group.group_status_message || "No group status set",
           lastMsgRead,
-          unreadCount,
+           unreadCount, // ✅ include it here
         };
       })
     );
@@ -404,4 +401,3 @@ module.exports.markMessagesAsRead = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
