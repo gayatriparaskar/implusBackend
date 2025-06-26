@@ -10,7 +10,14 @@ const GroupChatSchema = new mongoose.Schema({
     default: 'text'
   },
   payload: { type: mongoose.Schema.Types.Mixed }, // store extra info like visitor name, taskId, etc
-  timestamp: { type: Date, default: Date.now }
+  timestamp: { type: Date, default: Date.now },
+   // ✅ Add this block
+  seenBy: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      timestamp: { type: Date, default: Date.now },
+    }
+  ]
 });
 
 const GroupChatModel = mongoose.model('GroupChat', GroupChatSchema)
