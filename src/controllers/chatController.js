@@ -288,21 +288,44 @@ module.exports.getchatList = async (req, res) => {
             };
           }
         }
-        const unreadCount = await GroupChat.countDocuments({
-          groupId: group._id,
-          $or: [
-            { seenBy: { $exists: false } }, // no seenBy at all
-            {
-              seenBy: {
-                $not: {
-                  $elemMatch: {
-                    userId: new ObjectId(userId),
-                  },
-                },
-              },
-            },
-          ],
-        });
+        // const unreadCount = await GroupChat.countDocuments({
+        //   groupId: group._id,
+        //   $or: [
+        //     { seenBy: { $exists: false } }, // no seenBy at all
+        //     {
+        //       seenBy: {
+        //         $not: {
+        //           $elemMatch: {
+        //             userId: new ObjectId(userId),
+        //           },
+        //         },
+        //       },
+        //     },
+        //   ],
+        // });
+
+        // Step 1: Get user's last seen timestamp for this group
+        let lastSeenEntry = null;
+        if (lastGroupMsg?.seenBy) {
+          lastSeenEntry = lastGroupMsg.seenBy.find(
+            (entry) => entry.userId.toString() === userId
+          );
+        }
+
+        let unreadCount = 0;
+
+        if (lastSeenEntry && lastSeenEntry.timestamp) {
+          // Count messages sent AFTER last seen
+          unreadCount = await GroupChat.countDocuments({
+            groupId: group._id,
+            timestamp: { $gt: lastSeenEntry.timestamp },
+          });
+        } else {
+          // User never saw any messages → count all
+          unreadCount = await GroupChat.countDocuments({
+            groupId: group._id,
+          });
+        }
 
         let lastMsgRead = true;
         if (
@@ -369,45 +392,44 @@ module.exports.markMessagesAsRead = async (req, res) => {
       members: new ObjectId(userId),
     }).select("_id");
 
-   await GroupChat.updateMany(
-  {
-    groupId: { $in: userGroups.map((g) => g._id) },
-    $or: [
-      { seenBy: { $exists: false } },
+    await GroupChat.updateMany(
       {
-        seenBy: {
-          $not: {
-            $elemMatch: {
-              userId: new ObjectId(userId),
+        groupId: { $in: userGroups.map((g) => g._id) },
+        $or: [
+          { seenBy: { $exists: false } },
+          {
+            seenBy: {
+              $not: {
+                $elemMatch: {
+                  userId: new ObjectId(userId),
+                },
+              },
             },
           },
+        ],
+      },
+      {
+        $pull: {
+          seenBy: {
+            userId: new ObjectId(userId),
+          },
         },
-      },
-    ],
-  },
-  {
-    $pull: {
-      seenBy: {
-        userId: new ObjectId(userId),
-      },
-    },
-  }
-);
+      }
+    );
 
-await GroupChat.updateMany(
-  {
-    groupId: { $in: userGroups.map((g) => g._id) },
-  },
-  {
-    $push: {
-      seenBy: {
-        userId: new ObjectId(userId),
-        timestamp: new Date(),
+    await GroupChat.updateMany(
+      {
+        groupId: { $in: userGroups.map((g) => g._id) },
       },
-    },
-  }
-);
-
+      {
+        $push: {
+          seenBy: {
+            userId: new ObjectId(userId),
+            timestamp: new Date(),
+          },
+        },
+      }
+    );
 
     res.status(200).json({ message: "Marked all messages as read/seen" });
   } catch (err) {
