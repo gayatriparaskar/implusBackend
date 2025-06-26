@@ -172,43 +172,43 @@ module.exports.getchatList = async (req, res) => {
 
     // Optional Step 4.5: If markRead is true, mark all messages read/seen
 
-    if (markRead) {
-      // 1-to-1 messages: mark as read
-      await chatModel.updateMany(
-        {
-          receiverId: userId,
-          read: false,
-        },
-        { $set: { read: true } }
-      );
+    // if (markRead) {
+    //   // 1-to-1 messages: mark as read
+    //   await chatModel.updateMany(
+    //     {
+    //       receiverId: userId,
+    //       read: false,
+    //     },
+    //     { $set: { read: true } }
+    //   );
 
-      // Group messages: push user to seenBy
-      await GroupChat.updateMany(
-        {
-          groupId: { $in: groups.map((g) => g._id) },
-          $or: [
-            { seenBy: { $exists: false } },
-            {
-              seenBy: {
-                $not: {
-                  $elemMatch: {
-                    userId: new ObjectId(userId),
-                  },
-                },
-              },
-            },
-          ],
-        },
-        {
-          $push: {
-            seenBy: {
-              userId: new ObjectId(userId),
-              timestamp: new Date(),
-            },
-          },
-        }
-      );
-    }
+    //   // Group messages: push user to seenBy
+    //   await GroupChat.updateMany(
+    //     {
+    //       groupId: { $in: groups.map((g) => g._id) },
+    //       $or: [
+    //         { seenBy: { $exists: false } },
+    //         {
+    //           seenBy: {
+    //             $not: {
+    //               $elemMatch: {
+    //                 userId: new ObjectId(userId),
+    //               },
+    //             },
+    //           },
+    //         },
+    //       ],
+    //     },
+    //     {
+    //       $push: {
+    //         seenBy: {
+    //           userId: new ObjectId(userId),
+    //           timestamp: new Date(),
+    //         },
+    //       },
+    //     }
+    //   );
+    // }
 
     // Step 5: Format user contacts
     const formattedContacts = await Promise.all(
@@ -241,14 +241,14 @@ module.exports.getchatList = async (req, res) => {
           }
         }
 
-        const unreadCount =
-          markRead === true
-            ? 0
-            : await chatModel.countDocuments({
-                senderId: otherUserId,
-                receiverId: userId,
-                $or: [{ read: false }, { read: { $exists: false } }],
-              });
+        // const unreadCount =
+        //   markRead === true
+        //     ? 0
+        //     : await chatModel.countDocuments({
+        //         senderId: otherUserId,
+        //         receiverId: userId,
+        //         $or: [{ read: false }, { read: { $exists: false } }],
+        //       });
 
         const lastMsgRead =
           !lastMsg ||
@@ -353,4 +353,55 @@ module.exports.getchatList = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-// // both code is merged
+
+module.exports.markMessagesAsRead = async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // 1. Mark all 1-to-1 messages as read
+    await chatModel.updateMany(
+      {
+        receiverId: userId,
+        read: false,
+      },
+      { $set: { read: true } }
+    );
+
+    // 2. Mark all group messages as seen
+    const userGroups = await GroupModel.find({
+      members: new ObjectId(userId),
+    }).select("_id");
+
+    await GroupChat.updateMany(
+      {
+        groupId: { $in: userGroups.map((g) => g._id) },
+        $or: [
+          { seenBy: { $exists: false } },
+          {
+            seenBy: {
+              $not: {
+                $elemMatch: {
+                  userId: new ObjectId(userId),
+                },
+              },
+            },
+          },
+        ],
+      },
+      {
+        $push: {
+          seenBy: {
+            userId: new ObjectId(userId),
+            timestamp: new Date(),
+          },
+        },
+      }
+    );
+
+    res.status(200).json({ message: "Marked all messages as read/seen" });
+  } catch (err) {
+    console.error("Error marking messages as read:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
