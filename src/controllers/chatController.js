@@ -329,7 +329,7 @@ module.exports.getchatList = async (req, res) => {
           group_status_message:
             group.group_status_message || "No group status set",
           lastMsgRead,
-           unreadCount, // ✅ include it here
+          unreadCount, // ✅ include it here
         };
       })
     );
@@ -358,8 +358,8 @@ module.exports.markMessagesAsRead = async (req, res) => {
     // 1. Mark all 1-to-1 messages as read
     await chatModel.updateMany(
       {
-        receiverId: userId,
-        read: false,
+        receiverId: new ObjectId(userId),
+        $or: [{ read: false }, { read: { $exists: false } }],
       },
       { $set: { read: true } }
     );
