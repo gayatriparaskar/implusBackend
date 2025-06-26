@@ -9,7 +9,7 @@ chatRouter.post("/messages/:user1/:user2",sendMessage);
 chatRouter.get("/messages/:user1/:user2",getMessages);
 
 chatRouter.get("/full-chat-list/:userId",getchatList);
-chatRouter.post("/markRead/:userId",markMessagesAsRead);
+chatRouter.post("/markRead/:userId/:groupId?",markMessagesAsRead);
 chatRouter.post("/upload", uploadFile, (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
