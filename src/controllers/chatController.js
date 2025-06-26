@@ -312,20 +312,31 @@ module.exports.getchatList = async (req, res) => {
           );
         }
 
-        let unreadCount = 0;
+        // let unreadCount = 0;
 
-        if (lastSeenEntry && lastSeenEntry.timestamp) {
-          // Count messages sent AFTER last seen
-          unreadCount = await GroupChat.countDocuments({
-            groupId: group._id,
-            timestamp: { $gt: lastSeenEntry.timestamp },
-          });
-        } else {
-          // User never saw any messages → count all
-          unreadCount = await GroupChat.countDocuments({
-            groupId: group._id,
-          });
-        }
+        // if (lastSeenEntry && lastSeenEntry.timestamp) {
+        //   // Count messages sent AFTER last seen
+        //   unreadCount = await GroupChat.countDocuments({
+        //     groupId: group._id,
+        //     timestamp: { $gt: lastSeenEntry.timestamp },
+        //   });
+        // } else {
+        //   // User never saw any messages → count all
+        //   unreadCount = await GroupChat.countDocuments({
+        //     groupId: group._id,
+        //   });
+        // }
+
+        const unreadCount = await GroupChat.countDocuments({
+          groupId: group._id,
+          seenBy: {
+            $not: {
+              $elemMatch: {
+                userId: new ObjectId(userId),
+              },
+            },
+          },
+        });
 
         let lastMsgRead = true;
         if (
@@ -430,5 +441,3 @@ module.exports.markMessagesAsRead = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
-
