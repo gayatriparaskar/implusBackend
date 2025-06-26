@@ -369,31 +369,45 @@ module.exports.markMessagesAsRead = async (req, res) => {
       members: new ObjectId(userId),
     }).select("_id");
 
-    await GroupChat.updateMany(
+   await GroupChat.updateMany(
+  {
+    groupId: { $in: userGroups.map((g) => g._id) },
+    $or: [
+      { seenBy: { $exists: false } },
       {
-        groupId: { $in: userGroups.map((g) => g._id) },
-        $or: [
-          { seenBy: { $exists: false } },
-          {
-            seenBy: {
-              $not: {
-                $elemMatch: {
-                  userId: new ObjectId(userId),
-                },
-              },
+        seenBy: {
+          $not: {
+            $elemMatch: {
+              userId: new ObjectId(userId),
             },
           },
-        ],
-      },
-      {
-        $addToSet: {
-          seenBy: {
-            userId: new ObjectId(userId),
-            timestamp: new Date(),
-          },
         },
-      }
-    );
+      },
+    ],
+  },
+  {
+    $pull: {
+      seenBy: {
+        userId: new ObjectId(userId),
+      },
+    },
+  }
+);
+
+await GroupChat.updateMany(
+  {
+    groupId: { $in: userGroups.map((g) => g._id) },
+  },
+  {
+    $push: {
+      seenBy: {
+        userId: new ObjectId(userId),
+        timestamp: new Date(),
+      },
+    },
+  }
+);
+
 
     res.status(200).json({ message: "Marked all messages as read/seen" });
   } catch (err) {
