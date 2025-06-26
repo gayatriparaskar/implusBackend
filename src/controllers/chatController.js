@@ -376,64 +376,59 @@ module.exports.getchatList = async (req, res) => {
 
 module.exports.markMessagesAsRead = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const { userId, groupId } = req.params;
 
-    // 1. Mark all 1-to-1 messages as read
-    await chatModel.updateMany(
-      {
-        receiverId: new ObjectId(userId),
-        $or: [{ read: false }, { read: { $exists: false } }],
-      },
-      { $set: { read: true } }
-    );
+    if (!groupId) {
+      // ✅ 1-ON-1 CHAT FLOW
+      await chatModel.updateMany(
+        {
+          receiverId: new ObjectId(userId),
+          $or: [{ read: false }, { read: { $exists: false } }],
+        },
+        { $set: { read: true } }
+      );
 
-    // 2. Mark all group messages as seen
-    const userGroups = await GroupModel.find({
-      members: new ObjectId(userId),
-    }).select("_id");
+      return res.status(200).json({
+        message: `1-on-1 messages marked as read for user ${userId}`,
+      });
+    } else {
+      // ✅ GROUP CHAT FLOW
+      // Step 1: Remove old seenBy entry if exists
+      await GroupChat.updateMany(
+        {
+          groupId: new ObjectId(groupId),
+          "seenBy.userId": new ObjectId(userId),
+        },
+        {
+          $pull: {
+            seenBy: { userId: new ObjectId(userId) },
+          },
+        }
+      );
 
-    await GroupChat.updateMany(
-      {
-        groupId: { $in: userGroups.map((g) => g._id) },
-        $or: [
-          { seenBy: { $exists: false } },
-          {
+      // Step 2: Add new seenBy entry
+      await GroupChat.updateMany(
+        {
+          groupId: new ObjectId(groupId),
+        },
+        {
+          $push: {
             seenBy: {
-              $not: {
-                $elemMatch: {
-                  userId: new ObjectId(userId),
-                },
-              },
+              userId: new ObjectId(userId),
+              timestamp: new Date(),
             },
           },
-        ],
-      },
-      {
-        $pull: {
-          seenBy: {
-            userId: new ObjectId(userId),
-          },
-        },
-      }
-    );
+        }
+      );
 
-    await GroupChat.updateMany(
-      {
-        groupId: { $in: userGroups.map((g) => g._id) },
-      },
-      {
-        $push: {
-          seenBy: {
-            userId: new ObjectId(userId),
-            timestamp: new Date(),
-          },
-        },
-      }
-    );
-
-    res.status(200).json({ message: "Marked all messages as read/seen" });
+      return res.status(200).json({
+        message: `Group ${groupId} messages marked as seen by user ${userId}`,
+      });
+    }
   } catch (err) {
     console.error("Error marking messages as read:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+
