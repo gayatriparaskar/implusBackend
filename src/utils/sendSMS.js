@@ -1,6 +1,7 @@
 // utils/sendSMS.js
 const twilio = require('twilio');
-
+// const dotenv = require('dotenv');
+// dotenv.config();
 const client = twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
@@ -14,7 +15,7 @@ module.exports.sendSMS = async function sendSMS(to, body) {
       to,
     });
 
-    console.log("✅ SMS sent via Twilio:", message.sid);
+    console.log("✅ OTP for Simflo login is:", message.sid);
     return true;
   } catch (error) {
     console.error("❌ Twilio SMS Error:", error.message);

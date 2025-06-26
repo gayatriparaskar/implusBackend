@@ -29,7 +29,8 @@ module.exports.register = async (req, res) => {
     const existingUser = await UserModel.findOne({
       $or: [{ phone_number: data.phone_number }],
     });
-
+     console.log("existingUser",existingUser);
+     
     if (existingUser) {
       const otp = generateOTP();
       const normPhone = normalizePhone(data.phone_number); // ✅ normalize here
@@ -40,9 +41,7 @@ module.exports.register = async (req, res) => {
     const smsSent = await sendSMS(
       data.phone_number,
      
-      `Your IAmPlus--Simflo verification code is ${otp}. Please enter this code to proceed.
-Do not share this code with anyone.
-This OTP is valid for 1 minute Only ! Thank You Team IamPlus.`
+      `Your IAmPlus--Simflo verification code is ${otp}. Please enter this code to proceed.`
     );
     console.log(`✅ OTP for ${data.phone_number}:`, otp);
      return res.status(200).json({
