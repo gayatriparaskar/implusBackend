@@ -160,7 +160,7 @@ function socketHandler(io) {
         if (socketId) {
           // ✅ Emit lightweight group notification for chat list
         io.to(socketId).emit("newUnreadMessage", {
-     type: "group"||"user",
+       type: "group"||"user",
       chatId: groupId,
       from: senderId,
       message,
