@@ -9,6 +9,7 @@ const client = twilio(
 
 module.exports.sendSMS = async function sendSMS(to, body) {
   try {
+    
     const message = await client.messages.create({
       body,
       from: process.env.TWILIO_PHONE_NUMBER,

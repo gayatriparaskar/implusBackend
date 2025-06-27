@@ -39,7 +39,7 @@ module.exports.register = async (req, res) => {
       expiresAt: Date.now() + 5 * 60 * 1000, // 5 mins expiry
     });
     const smsSent = await sendSMS(
-      data.phone_number,
+      `+91${data.phone_number}`,
      
       `Your IAmPlus--Simflo verification code is ${otp}. Please enter this code to proceed.`
     );
