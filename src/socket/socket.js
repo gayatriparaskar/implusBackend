@@ -3,7 +3,7 @@ const Chat = require("../models/Chats");
 const GroupChat = require("../models/GroupChat");
 const Group = require("../models/Group");
 const User = require("../models/Auth");
-const { sendPushNotification } = require("../utils/sendPushNotification");
+const { sendPushNotification } = require('../utils/sendPushNotification');
 const { encrypt, decrypt } = require("../utils/encryption");
 
 const onlineUsers = {};
@@ -43,17 +43,16 @@ function socketHandler(io) {
         timestamp: new Date(),
         read: false,
       };
+ 
 
       const savedMsg = await Chat.create(chatData);
-      if (chatData) {
-        console.log(
-          "notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1"
-        );
-        await sendPushNotification(receiverId, {
-          title: "New Message",
-          body: message,
-          url: `/chat/${senderId}`,
-        });
+      if(chatData){
+         console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
+         await sendPushNotification(receiverId, {
+      title: 'New Message',
+      body: message,
+      url: `/chat/${senderId}`
+    });
       }
 
       const receiverSocketId = onlineUsers[receiverId];
@@ -67,10 +66,10 @@ function socketHandler(io) {
           timestamp: savedMsg.timestamp,
         });
         await sendPushNotification(receiverId, {
-          title: "New Message",
-          body: message,
-          url: `/chat/${senderId}`,
-        });
+      title: 'New Message',
+      body: message,
+      url: `/chat/${senderId}`
+    });
 
         // ✅ Emit a lightweight notification to update chat list
         io.to(receiverSocketId).emit("newUnreadMessage", {
@@ -78,18 +77,20 @@ function socketHandler(io) {
           message,
           timestamp: savedMsg.timestamp,
         });
+        
       } else {
-        // ✅ Push Notification if user is offline
-        await sendPushNotification(receiverId, {
-          title: "New Message",
-          body: message,
-          url: `/chat/${senderId}`,
-        });
-      }
+    // ✅ Push Notification if user is offline
+    await sendPushNotification(receiverId, {
+      title: 'New Message',
+      body: message,
+      url: `/chat/${senderId}`
+    });
+  }
 
       // (Optional) Push notification fallback if not online
     });
 
+    // ✅ Group message handling
     socket.on(
       "sendGroupMessage",
       async ({
@@ -115,24 +116,12 @@ function socketHandler(io) {
             });
           }
 
-          const sender = await User.findById(senderId);
-          if (!sender) {
-            console.warn("❌ Sender not found");
-            return socket.emit("groupError", {
-              message: "Sender not found",
-              code: "SENDER_NOT_FOUND",
-            });
-          }
-
-          const senderName = sender?.userName; // or sender.fullName or sender.username, based on your schema
-
           console.log("🔐 Encrypting message...");
           const encryptedMessage = encrypt(message);
 
           const chatData = {
             groupId,
             senderId,
-            senderName, // ✅ include sender name here
             message: encryptedMessage,
             messageType,
             payload,
@@ -142,12 +131,48 @@ function socketHandler(io) {
           console.log("💾 Saving group chat:", chatData);
           const savedMsg = await GroupChat.create(chatData);
 
-          // Emit message to group members if needed
-          // socket.to(groupId).emit("newGroupMessage", savedMsg);
+          // group.members.forEach(memberId => {
+          //   const idStr = memberId.toString();
+          //   const socketId = onlineUsers[idStr];
+          //   if (socketId) {
+          //     io.to(socketId).emit('receiveGroupMessage', {
+          //       ...savedMsg._doc,
+          //       message // decrypted for frontend
+          //     });
+          //   }
+          // });
+
+          // With this:
+          // io.to(groupId).emit("receiveGroupMessage", {
+          //   ...savedMsg._doc,
+          //   message, // decrypted for frontend
+          // });
+
+          socket.to(groupId).emit("receiveGroupMessage", {
+            ...savedMsg._doc,
+            message,
+          });
+
+          socket.emit("groupMessageSent", { success: true, data: savedMsg._doc,message });
+          console.log("✅ Encrypted group message saved and emitted");
+           // ✅ Send Push Notifications to offline members (excluding sender)
+      for (const memberId of group.members) {
+        const idStr = memberId.toString();
+        const socketId = onlineUsers[idStr];
+
+        if (!socketId && idStr !== senderId) {
+              // console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
+          await sendPushNotification(idStr, {
+            title: `New message in ${group.name}`,
+            body: message,
+            url: `/group/${groupId}`, // Adjust if your frontend uses a different path
+          });
+        }
+      }
         } catch (err) {
-          console.error("❌ Error in sendGroupMessage:", err);
+          console.error("❌ Error sending group message chat:", err);
           socket.emit("groupError", {
-            message: "Internal server error",
+            message: "Internal error",
             code: "SERVER_ERROR",
           });
         }
