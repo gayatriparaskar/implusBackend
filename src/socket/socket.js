@@ -109,7 +109,7 @@ function socketHandler(io) {
 
       const sender = await User.findById(senderId);
       if (!sender) {
-        console.warn("❌ Sender not found");
+        console.warn("❌ Sender not found yet");
         return socket.emit("groupError", {
           message: "Sender not found",
           code: "SENDER_NOT_FOUND",
