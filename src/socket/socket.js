@@ -157,10 +157,11 @@ function socketHandler(io) {
         if (idStr === senderId) continue;
 
         // 🔔 Push notification if offline
-        if (!socketId) {
+        if (socketId) {
           // ✅ Emit lightweight group notification for chat list
-    io.to(socketId).emit("newGroupUnreadMessage", {
-      groupId,
+        io.to(socketId).emit("newUnreadMessage", {
+     type: "group",
+      chatId: groupId,
       from: senderId,
       message,
       timestamp: savedMsg.timestamp,
