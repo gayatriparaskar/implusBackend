@@ -106,7 +106,18 @@ function socketHandler(io) {
             senderId,
             message,
           });
+          const sender = await User.findById(senderId);
+          if (!sender) {
+            console.warn("❌ Sender not found");
+            return socket.emit("groupError", {
+              message: "Sender not found",
+              code: "SENDER_NOT_FOUND",
+            });
+          }
 
+          const senderName = sender?.userName;
+          console.log(senderName,"senderName");
+          
           const group = await Group.findById(groupId);
           if (!group || !group.members.includes(senderId)) {
             console.warn("❌ Unauthorized group access");
@@ -122,6 +133,7 @@ function socketHandler(io) {
           const chatData = {
             groupId,
             senderId,
+            senderName,
             message: encryptedMessage,
             messageType,
             payload,

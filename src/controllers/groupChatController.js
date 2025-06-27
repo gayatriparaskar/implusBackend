@@ -2,7 +2,7 @@ const mongoose = require ("mongoose");
 
 const GroupChatModel = require("../models/GroupChat");
 const { encrypt, decrypt } = require("../utils/encryption");
-
+const User = require ("../models/Auth");
 // module.exports.sendGroupMessage = async (req, res) => {
 //   try {
 //     const { groupId, senderId, message } = req.body;
@@ -26,7 +26,17 @@ module.exports.sendGroupMessage = async (req, res) => {
     const { groupId, senderId, message, messageType = 'text', payload = {} } = req.body;
 
     const encryptedMessage = encrypt(message); // 🔐 Encrypt the message only
+const sender = await User.findById(senderId);
+          if (!sender) {
+            console.warn("❌ Sender not found");
+            return socket.emit("groupError", {
+              message: "Sender not found",
+              code: "SENDER_NOT_FOUND",
+            });
+          }
 
+          const senderName = sender?.userName;
+          console.log(senderName,"senderName");
     const newMessage = await GroupChatModel.create({
       groupId,
       senderId,
@@ -34,6 +44,7 @@ module.exports.sendGroupMessage = async (req, res) => {
       messageType,
       payload,
     });
+
 
     res.status(201).json({
       success: true,
