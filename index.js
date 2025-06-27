@@ -17,6 +17,7 @@ const app = express();
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 const saveSubscriptionRoute = require("./src/routes/saveSubscription");
+const { callSocketHandler } = require('./src/socket/callSocket');
 app.use(cors());
 app.use(express.json());
 connectDB();
@@ -47,6 +48,8 @@ const io = new Server(server, {
 setSocketIo(io); // 👈 this will set io inside your controller
 // 👉 Initialize socket logic
 socketHandler(io);
+callSocketHandler(io);
+
 // webpush.setVapidDetails(
 //   'mailto:hello@example.com',
 //   vapidPublicKey,       // ✅ public key first
