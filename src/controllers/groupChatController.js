@@ -77,6 +77,8 @@ module.exports.getGroupMessages = async (req, res) => {
       ...msg._doc,
       message: decrypt(msg.message),
     }));
+    console.log(messages,"message");
+    
 
     res.status(200).json({ success: true, data: decryptedMessages });
   } catch (error) {
