@@ -158,19 +158,20 @@ function socketHandler(io) {
 
         // 🔔 Push notification if offline
         if (!socketId) {
-          await sendPushNotification(idStr, {
-            title: `New message in ${group.name}`,
-            body: message,
-            url: `/group/${groupId}`,
+          // ✅ Emit lightweight group notification for chat list
+    io.to(socketId).emit("newGroupUnreadMessage", {
+      groupId,
+      from: senderId,
+      message,
+      timestamp: savedMsg.timestamp,
           });
         } else {
-          // 🔄 Update chat list
-          io.to(socketId).emit("newGroupMessage", {
-            groupId,
-            senderId,
-            message,
-            timestamp: savedMsg.timestamp,
-          });
+         // ✅ Push notification for offline users
+    await sendPushNotification(idStr, {
+      title: `New message in ${group.name}`,
+      body: message,
+      url: `/group/${groupId}`,
+    });
         }
       }
 
