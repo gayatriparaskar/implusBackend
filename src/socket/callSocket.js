@@ -21,18 +21,15 @@ function callSocketHandler(io) {
 
     peers[socket.id] = { socket, userId, roomId };
 
-    // ✅ Create Router if not exists
     if (!routers[roomId]) {
       createRouter(roomId);
     }
 
-    /** 🔥 RTP Capabilities **/
     socket.on('getRtpCapabilities', (callback) => {
       const router = getRouter(roomId);
       callback(router.rtpCapabilities);
     });
 
-    /** 🔥 Create Send Transport **/
     socket.on('createSendTransport', async (callback) => {
       const router = getRouter(roomId);
       const { transport, params } = await createWebRtcTransport(router);
@@ -40,7 +37,6 @@ function callSocketHandler(io) {
       callback(params);
     });
 
-    /** 🔥 Create Receive Transport **/
     socket.on('createRecvTransport', async (callback) => {
       const router = getRouter(roomId);
       const { transport, params } = await createWebRtcTransport(router);
@@ -48,56 +44,76 @@ function callSocketHandler(io) {
       callback(params);
     });
 
-    /** 🔥 Connect Transport **/
     socket.on('connectTransport', async ({ dtlsParameters, isConsumer }, callback) => {
-      const transport = isConsumer ? transports[socket.id + '_recv'] : transports[socket.id];
-      await transport.connect({ dtlsParameters });
-      callback('connected');
+      try {
+        const transport = isConsumer ? transports[socket.id + '_recv'] : transports[socket.id];
+        await transport.connect({ dtlsParameters });
+        callback('connected');
+      } catch (error) {
+        console.error('❌ connectTransport error:', error);
+        callback('error');
+      }
     });
 
-    /** 🔥 Produce **/
     socket.on('produce', async ({ kind, rtpParameters }, callback) => {
-      const producer = await transports[socket.id].produce({ kind, rtpParameters });
-      producers[socket.id] = producer;
+      try {
+        const producer = await transports[socket.id].produce({ kind, rtpParameters });
+        producers[socket.id] = producer;
 
-      // Notify others in the same room
-      for (let peerId in peers) {
-        if (peerId !== socket.id && peers[peerId].roomId === roomId) {
-          peers[peerId].socket.emit('newProducer', {
-            producerId: producer.id,
-            kind,
-          });
+        for (let peerId in peers) {
+          if (peerId !== socket.id && peers[peerId].roomId === roomId) {
+            peers[peerId].socket.emit('newProducer', {
+              producerId: producer.id,
+              kind,
+            });
+          }
+        }
+
+        callback({ id: producer.id });
+      } catch (err) {
+        console.error('❌ produce error:', err);
+        callback({ error: err.message });
+      }
+    });
+
+    socket.on('getProducers', (callback) => {
+      const producerIds = [];
+      for (let peerId in producers) {
+        if (peerId !== socket.id && peers[peerId]?.roomId === roomId) {
+          producerIds.push(producers[peerId].id);
         }
       }
-
-      callback({ id: producer.id });
+      callback(producerIds);
     });
 
-    /** 🔥 Consume **/
     socket.on('consume', async ({ producerId, rtpCapabilities }, callback) => {
-      const router = getRouter(roomId);
-      if (!router.canConsume({ producerId, rtpCapabilities })) {
-        console.error('❌ Cannot consume');
-        return callback({ error: 'Cannot consume' });
+      try {
+        const router = getRouter(roomId);
+        if (!router.canConsume({ producerId, rtpCapabilities })) {
+          console.error('❌ Cannot consume');
+          return callback({ error: 'Cannot consume' });
+        }
+
+        const consumer = await transports[socket.id + '_recv'].consume({
+          producerId,
+          rtpCapabilities,
+          paused: false,
+        });
+
+        consumers[socket.id] = consumer;
+
+        callback({
+          id: consumer.id,
+          producerId,
+          kind: consumer.kind,
+          rtpParameters: consumer.rtpParameters,
+        });
+      } catch (err) {
+        console.error('❌ consume error:', err);
+        callback({ error: err.message });
       }
-
-      const consumer = await transports[socket.id + '_recv'].consume({
-        producerId,
-        rtpCapabilities,
-        paused: false,
-      });
-
-      consumers[socket.id] = consumer;
-
-      callback({
-        id: consumer.id,
-        producerId,
-        kind: consumer.kind,
-        rtpParameters: consumer.rtpParameters,
-      });
     });
 
-    /** 🧹 Cleanup **/
     socket.on('disconnect', () => {
       console.log('❌ Call socket disconnected:', socket.id);
 
