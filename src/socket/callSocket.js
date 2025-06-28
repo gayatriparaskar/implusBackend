@@ -1,7 +1,8 @@
 const {
   startMediasoup,
-  router,
+  createRouter,
   createWebRtcTransport,
+  routers,
   producers,
   consumers,
   transports,
@@ -13,18 +14,23 @@ function callSocketHandler(io) {
 
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId;
-    console.log('📞 Call socket connected:', socket.id, 'User:', userId);
+    const roomId = socket.handshake.query.roomId; // 🔥 Room ID (use call ID or group)
 
-    peers[socket.id] = { socket, userId };
+    console.log('📞 Call socket connected:', socket.id, 'User:', userId, 'Room:', roomId);
 
-    /** 🔄 Mediasoup Events **/
+    peers[socket.id] = { socket, userId, roomId };
 
-    socket.on('getRtpCapabilities', (callback) => {
+    /** 🔄 Mediasoup **/
+
+    socket.on('getRtpCapabilities', async (callback) => {
+      const router = await createRouter(roomId);
       callback(router.rtpCapabilities);
     });
 
     socket.on('createTransport', async (callback) => {
-      const { transport, params } = await createWebRtcTransport();
+      const router = await createRouter(roomId);
+      const { transport, params } = await createWebRtcTransport(router);
+
       transports[socket.id] = transport;
       callback(params);
     });
@@ -38,9 +44,9 @@ function callSocketHandler(io) {
       const producer = await transports[socket.id].produce({ kind, rtpParameters });
       producers[socket.id] = producer;
 
-      // Notify all others
+      // Notify others in the same room
       for (let peerId in peers) {
-        if (peerId !== socket.id) {
+        if (peerId !== socket.id && peers[peerId].roomId === roomId) {
           peers[peerId].socket.emit('newProducer', {
             producerId: producer.id,
             kind,
@@ -52,9 +58,15 @@ function callSocketHandler(io) {
     });
 
     socket.on('consume', async ({ producerId, rtpCapabilities }, callback) => {
+      const router = routers[roomId];
+      if (!router) {
+        console.error('❌ Router not found for room', roomId);
+        return callback({ error: 'Router not ready' });
+      }
+
       if (!router.canConsume({ producerId, rtpCapabilities })) {
         console.error('❌ Cannot consume');
-        return;
+        return callback({ error: 'Cannot consume' });
       }
 
       const consumer = await transports[socket.id].consume({
@@ -73,16 +85,11 @@ function callSocketHandler(io) {
       });
     });
 
-    /** 📞 Custom Call Signaling **/
-
+    /** 📞 Call Signaling **/
     socket.on('startCall', ({ fromUserId, toUserId, isVideo }) => {
       const targetPeer = Object.values(peers).find((p) => p.userId === toUserId);
       if (targetPeer?.socket) {
-        console.log(`📞 Calling ${toUserId} from ${fromUserId}`);
-        targetPeer.socket.emit('incomingCall', {
-          fromUserId,
-          isVideo,
-        });
+        targetPeer.socket.emit('incomingCall', { fromUserId, isVideo });
       }
     });
 
