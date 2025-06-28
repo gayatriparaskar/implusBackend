@@ -11,6 +11,7 @@ const groupRouter = require("./src/routes/groupRouter");
 const chatRouter = require("./src/routes/chatRouter");
 const { setSocketIo } = require('./src/controllers/groupController');
 const groupChatRouter = require("./src/routes/groupChatRouter");
+const callLogRouter = require("./src/routes/callLogsRouter");
 const path = require("path");
 const webpush = require('web-push');
 const app = express();
@@ -37,14 +38,21 @@ app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/chatGroup', groupChatRouter);
+app.use('/api/call-logs', callLogRouter);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // serve files statically
 app.use('/api/save-subscription', saveSubscriptionRoute);
 
 const server = http.createServer(app);
+
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: {
+    origin: 'http://localhost:5173',  // Or put your frontend origin
+    methods: ['GET', 'POST'],
+    
+  }
 });
+
 setSocketIo(io); // 👈 this will set io inside your controller
 // 👉 Initialize socket logic
 socketHandler(io);

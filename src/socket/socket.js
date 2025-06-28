@@ -218,6 +218,29 @@ function socketHandler(io) {
       }
     });
 
+
+    // 🟢 Start Call
+socket.on('startCall', ({ fromUserId, toUserId, isVideo }) => {
+  const targetPeer = Object.values(peers).find((p) => p.userId === toUserId);
+  if (targetPeer?.socket) {
+    console.log(`📞 Calling ${toUserId} from ${fromUserId}`);
+    targetPeer.socket.emit('incomingCall', {
+      fromUserId,
+      isVideo,
+    });
+  } else {
+    console.log('🔕 User not online or peer not found');
+  }
+});
+
+// 🔴 Call Declined
+socket.on('callDeclined', ({ toUserId }) => {
+  const targetPeer = Object.values(peers).find((p) => p.userId === toUserId);
+  if (targetPeer?.socket) {
+    targetPeer.socket.emit('callDeclinedByPeer');
+  }
+});
+
     // ✅ Handle user disconnect and mark offline
     socket.on("disconnect", async () => {
       let disconnectedUserId = null;
@@ -238,3 +261,4 @@ function socketHandler(io) {
 }
 
 module.exports = { socketHandler, onlineUsers };
+
