@@ -100,6 +100,16 @@ function callSocketHandler(io) {
       }
     });
 
+
+    socket.on('joinRoom', async (roomId, callback) => {
+  if (!routers[roomId]) {
+    await createRouter(roomId);
+  }
+
+  const router = routers[roomId];
+  callback(router.rtpCapabilities);
+});
+
     /** Cleanup **/
     socket.on('disconnect', () => {
       console.log('❌ Call socket disconnected:', socket.id);
