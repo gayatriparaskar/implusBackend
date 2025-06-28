@@ -1,7 +1,7 @@
 const express = require("express");
 const { sendMessage, getMessages, getchatList , markMessagesAsRead} = require("../controllers/chatController");
 const { uploadFile } = require("../controllers/fileUploadController");
-
+const { authentication} = require("../middleware/authentication");
 const chatRouter = express.Router();
 
 chatRouter.post("/messages/:user1/:user2",sendMessage);

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const GroupChatSchema = new mongoose.Schema({
   groupId: { type: String, required: true },
   senderId: { type: String, required: true },
+  senderName :{type:String},
   message: { type: String, default: "" },  // Optional for some types
   messageType: { 
     type: String,
