@@ -1,13 +1,15 @@
 const {
   startMediasoup,
   createRouter,
+  getRouter,
   createWebRtcTransport,
   routers,
   producers,
   consumers,
   transports,
-  peers,
+  peers
 } = require('./mediasoupHandler');
+
 
 function callSocketHandler(io) {
   startMediasoup();
@@ -23,9 +25,13 @@ function callSocketHandler(io) {
     /** 🔄 Mediasoup **/
 
     socket.on('getRtpCapabilities', async (callback) => {
-      const router = await createRouter(roomId);
-      callback(router.rtpCapabilities);
-    });
+  const router = getRouter(roomId);
+  if (!router) {
+    return callback({ error: 'Router not found' });
+  }
+  callback(router.rtpCapabilities);
+});
+
 
     socket.on('createTransport', async (callback) => {
       const router = await createRouter(roomId);
@@ -110,6 +116,11 @@ function callSocketHandler(io) {
   callback(router.rtpCapabilities);
 });
 
+
+   socket.on('createRoom', async ({ roomId }, callback) => {
+    const router = await createRouter(roomId);
+    callback({ rtpCapabilities: router.rtpCapabilities });
+});
     /** Cleanup **/
     socket.on('disconnect', () => {
       console.log('❌ Call socket disconnected:', socket.id);

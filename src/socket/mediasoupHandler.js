@@ -1,17 +1,16 @@
 const mediasoup = require('mediasoup');
 
 let worker;
-let router;
-const transports = {}; // Stores all transports by socket.id
-const producers = {};  // Stores all producers by socket.id
-const consumers = {};  // Stores all consumers by socket.id
-const peers = {};      // Stores peers with socket and userId
+const routers = {};    // 🔥 Room-wise routers
+const transports = {};
+const producers = {};
+const consumers = {};
+const peers = {};
 
 /**
- * ✅ Start Mediasoup Worker and Router
+ * ✅ Start Mediasoup Worker
  */
 async function startMediasoup() {
-  // Create Worker
   worker = await mediasoup.createWorker({
     rtcMinPort: 10000,
     rtcMaxPort: 10100,
@@ -22,37 +21,50 @@ async function startMediasoup() {
     process.exit(1);
   });
 
-  // Create Router
-  router = await worker.createRouter({
-    mediaCodecs: [
-      {
-        kind: 'audio',
-        mimeType: 'audio/opus',
-        clockRate: 48000,
-        channels: 2,
-      },
-      {
-        kind: 'video',
-        mimeType: 'video/VP8',
-        clockRate: 90000,
-        parameters: {},
-      },
-    ],
-  });
-
-  console.log('✅ Mediasoup Worker and Router created');
+  console.log('✅ Mediasoup Worker created');
 }
 
 /**
- * ✅ Create WebRTC Transport for a client
+ * ✅ Create Router per Room
  */
-async function createWebRtcTransport() {
+async function createRouter(roomId) {
+  const mediaCodecs = [
+    {
+      kind: 'audio',
+      mimeType: 'audio/opus',
+      clockRate: 48000,
+      channels: 2,
+    },
+    {
+      kind: 'video',
+      mimeType: 'video/VP8',
+      clockRate: 90000,
+    },
+  ];
+
+  const router = await worker.createRouter({ mediaCodecs });
+  routers[roomId] = router;
+  console.log(`✅ Router created for room ${roomId}`);
+  return router;
+}
+
+/**
+ * ✅ Get Router of Room
+ */
+function getRouter(roomId) {
+  return routers[roomId];
+}
+
+/**
+ * ✅ Create WebRTC Transport
+ */
+async function createWebRtcTransport(router) {
   try {
     const transport = await router.createWebRtcTransport({
       listenIps: [
         {
           ip: '0.0.0.0',
-          announcedIp: process.env.ANNOUNCED_IP || 'YOUR_PUBLIC_IP', // 🔥 Change this in production
+          announcedIp: process.env.ANNOUNCED_IP || 'YOUR_PUBLIC_IP',
         },
       ],
       enableUdp: true,
@@ -82,18 +94,20 @@ async function createWebRtcTransport() {
         dtlsParameters: transport.dtlsParameters,
       },
     };
-  } catch (err) {
-    console.error('❌ Error creating WebRTC transport:', err);
-    throw err;
+  } catch (error) {
+    console.error('❌ Error creating WebRTC Transport:', error);
+    throw error;
   }
 }
 
 module.exports = {
   startMediasoup,
-  router,
+  createRouter,
+  getRouter,
+  createWebRtcTransport,
+  routers,
   transports,
   producers,
   consumers,
   peers,
-  createWebRtcTransport,
 };
