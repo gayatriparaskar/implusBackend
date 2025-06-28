@@ -8,6 +8,7 @@ const { encrypt, decrypt } = require("../utils/encryption");
 
 const onlineUsers = {};
 
+// ✅ Update user status (online/offline)
 async function updateUserOnlineStatus(userId, status) {
   await User.findByIdAndUpdate(userId, {
     online_status: status,
@@ -35,6 +36,7 @@ function socketHandler(io) {
       console.log(`User joined group ${groupId}`);
     });
 
+    // ✅ 1-to-1 message
     socket.on("sendMessage", async ({ senderId, receiverId, message }) => {
       const chatData = {
         senderId,
@@ -43,156 +45,100 @@ function socketHandler(io) {
         timestamp: new Date(),
         read: false,
       };
- 
 
       const savedMsg = await Chat.create(chatData);
-      if(chatData){
-         console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
-         await sendPushNotification(receiverId, {
-      title: 'New Message',
-      body: message,
-      url: `/chat/${senderId}`
-    });
-      }
-
       const receiverSocketId = onlineUsers[receiverId];
 
       if (receiverSocketId) {
-        // ✅ Emit actual chat message to receiver
         io.to(receiverSocketId).emit("newMessageReceived", {
           senderId,
           receiverId,
           message,
           timestamp: savedMsg.timestamp,
         });
-        await sendPushNotification(receiverId, {
-      title: 'New Message',
-      body: message,
-      url: `/chat/${senderId}`
-    });
 
-        // ✅ Emit a lightweight notification to update chat list
         io.to(receiverSocketId).emit("newUnreadMessage", {
           from: senderId,
           message,
           timestamp: savedMsg.timestamp,
         });
-        
+
+        await sendPushNotification(receiverId, {
+          title: 'New Message',
+          body: message,
+          url: `/chat/${senderId}`
+        });
+
       } else {
-    // ✅ Push Notification if user is offline
-    await sendPushNotification(receiverId, {
-      title: 'New Message',
-      body: message,
-      url: `/chat/${senderId}`
-    });
-  }
-
-      // (Optional) Push notification fallback if not online
-    });
-
-    // ✅ Group message handling
-    socket.on(
-  "sendGroupMessage",
-  async ({
-    groupId,
-    senderId,
-    message,
-    messageType = "text",
-    payload = {},
-  }) => {
-    try {
-      console.log("🟢 Incoming group message", {
-        groupId,
-        senderId,
-        message,
-      });
-
-      const sender = await User.findById(senderId);
-      if (!sender) {
-        console.warn("❌ Sender not found yet");
-        return socket.emit("groupError", {
-          message: "Sender not found",
-          code: "SENDER_NOT_FOUND",
+        await sendPushNotification(receiverId, {
+          title: 'New Message',
+          body: message,
+          url: `/chat/${senderId}`
         });
       }
+    });
 
-      const senderName = sender?.userName;
-      const group = await Group.findById(groupId);
-      if (!group || !group.members.includes(senderId)) {
-        console.warn("❌ Unauthorized group access");
-        return socket.emit("groupError", {
-          message: "Unauthorized",
-          code: "NOT_MEMBER",
-        });
-      }
-
-      console.log("🔐 Encrypting message...");
-      const encryptedMessage = encrypt(message);
-
-      const chatData = {
-        groupId,
-        senderId,
-        senderName,
-        message: encryptedMessage,
-        messageType,
-        payload,
-        timestamp: new Date(),
-      };
-
-      console.log("💾 Saving group chat:", chatData);
-      const savedMsg = await GroupChat.create(chatData);
-
-      // ✅ Emit to users currently in the group room (chat window)
-      socket.to(groupId).emit("receiveGroupMessage", {
-        ...savedMsg._doc,
-        message, // decrypted for frontend
-      });
-
-      // ✅ Emit lightweight update to chat list for all other members
-      for (const memberId of group.members) {
-        const idStr = memberId.toString();
-        const socketId = onlineUsers[idStr];
-
-        // Skip sender
-        if (idStr === senderId) continue;
-
-        // 🔔 Push notification if offline
-        if (socketId) {
-          // ✅ Emit lightweight group notification for chat list
-        io.to(socketId).emit("newUnreadMessage", {
-       type: "group"||"user",
-      chatId: groupId,
-      from: senderId,
+    // ✅ Group message
+    socket.on("sendGroupMessage", async ({
+      groupId,
+      senderId,
       message,
-      timestamp: savedMsg.timestamp,
+      messageType = "text",
+      payload = {},
+    }) => {
+      try {
+        const group = await Group.findById(groupId);
+        if (!group || !group.members.includes(senderId)) {
+          return socket.emit("groupError", {
+            message: "Unauthorized",
+            code: "NOT_MEMBER",
           });
-        } else {
-         // ✅ Push notification for offline users
-    await sendPushNotification(idStr, {
-      title: `New message in ${group.name}`,
-      body: message,
-      url: `/group/${groupId}`,
-    });
         }
+
+        const encryptedMessage = encrypt(message);
+
+        const chatData = {
+          groupId,
+          senderId,
+          message: encryptedMessage,
+          messageType,
+          payload,
+          timestamp: new Date(),
+        };
+
+        const savedMsg = await GroupChat.create(chatData);
+
+        socket.to(groupId).emit("receiveGroupMessage", {
+          ...savedMsg._doc,
+          message,
+        });
+
+        socket.emit("groupMessageSent", {
+          success: true,
+          data: savedMsg._doc,
+          message,
+        });
+
+        for (const memberId of group.members) {
+          const idStr = memberId.toString();
+          const socketId = onlineUsers[idStr];
+
+          if (!socketId && idStr !== senderId) {
+            await sendPushNotification(idStr, {
+              title: `New message in ${group.name}`,
+              body: message,
+              url: `/group/${groupId}`,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error sending group message:", err);
+        socket.emit("groupError", {
+          message: "Internal error",
+          code: "SERVER_ERROR",
+        });
       }
-
-      socket.emit("groupMessageSent", {
-        success: true,
-        data: savedMsg._doc,
-        message,
-      });
-
-      console.log("✅ Group message saved, emitted, and notifications sent");
-    } catch (err) {
-      console.error("❌ Error sending group message chat:", err);
-      socket.emit("groupError", {
-        message: "Internal error",
-        code: "SERVER_ERROR",
-      });
-    }
-  }
-);
-
+    });
 
     // ✅ Mark group messages as read
     socket.on("markGroupMessagesRead", async ({ userId, groupId }) => {
@@ -233,28 +179,74 @@ function socketHandler(io) {
       }
     });
 
+    // 🔥🔥🔥 Audio/Video Call Signaling 🔥🔥🔥
 
     // 🟢 Start Call
-socket.on('startCall', ({ fromUserId, toUserId, isVideo }) => {
-  const targetPeer = Object.values(peers).find((p) => p.userId === toUserId);
-  if (targetPeer?.socket) {
-    console.log(`📞 Calling ${toUserId} from ${fromUserId}`);
-    targetPeer.socket.emit('incomingCall', {
-      fromUserId,
-      isVideo,
-    });
-  } else {
-    console.log('🔕 User not online or peer not found');
-  }
-});
+    socket.on('startCall', ({ fromUserId, toUserId, isVideo }) => {
+      const targetSocketId = onlineUsers[toUserId];
 
-// 🔴 Call Declined
-socket.on('callDeclined', ({ toUserId }) => {
-  const targetPeer = Object.values(peers).find((p) => p.userId === toUserId);
-  if (targetPeer?.socket) {
-    targetPeer.socket.emit('callDeclinedByPeer');
-  }
-});
+      if (targetSocketId) {
+        console.log(`📞 Calling ${toUserId} from ${fromUserId}`);
+        io.to(targetSocketId).emit('incomingCall', {
+          fromUserId,
+          isVideo,
+        });
+      } else {
+        console.log('🔕 User not online');
+      }
+    });
+
+    // 🔄 Send WebRTC Offer
+    socket.on('webrtc-offer', ({ fromUserId, toUserId, offer }) => {
+      const targetSocketId = onlineUsers[toUserId];
+
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc-offer', { offer, fromUserId });
+      }
+    });
+
+    // 🔄 Send WebRTC Answer
+    socket.on('webrtc-answer', ({ fromUserId, toUserId, answer }) => {
+      const targetSocketId = onlineUsers[toUserId];
+
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc-answer', { answer, fromUserId });
+      }
+    });
+
+    // 🔁 ICE Candidate Exchange
+    socket.on('webrtc-ice-candidate', ({ fromUserId, toUserId, candidate }) => {
+      const targetSocketId = onlineUsers[toUserId];
+
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('webrtc-ice-candidate', {
+          candidate,
+          fromUserId,
+        });
+      }
+    });
+
+    // 🔴 Call Declined
+    socket.on('callDeclined', ({ fromUserId, toUserId }) => {
+      const targetSocketId = onlineUsers[toUserId];
+
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('callDeclinedByPeer', {
+          fromUserId,
+        });
+      }
+    });
+
+    // 🔚 Call Ended
+    socket.on('endCall', ({ fromUserId, toUserId }) => {
+      const targetSocketId = onlineUsers[toUserId];
+
+      if (targetSocketId) {
+        io.to(targetSocketId).emit('callEnded', {
+          fromUserId,
+        });
+      }
+    });
 
     // ✅ Handle user disconnect and mark offline
     socket.on("disconnect", async () => {
@@ -276,4 +268,3 @@ socket.on('callDeclined', ({ toUserId }) => {
 }
 
 module.exports = { socketHandler, onlineUsers };
-
