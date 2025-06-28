@@ -43,7 +43,10 @@ app.use('/api/save-subscription', saveSubscriptionRoute);
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: { origin: '*',
+    methods: ['GET', 'POST'],
+    credentials: true,
+   }
 });
 setSocketIo(io); // 👈 this will set io inside your controller
 // 👉 Initialize socket logic
