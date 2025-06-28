@@ -48,7 +48,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
 
   cors: {
-    origin: '*',  // Or put your frontend origin
+    origin: 'https://chat-app-wheat-two-51.vercel.app',  // Or put your frontend origin
     methods: ['GET', 'POST'],
     credentials: true,
     
