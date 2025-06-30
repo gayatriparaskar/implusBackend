@@ -1,10 +1,9 @@
-// src/socket/socket.js
 const Chat = require("../models/Chats");
 const GroupChat = require("../models/GroupChat");
 const Group = require("../models/Group");
 const User = require("../models/Auth");
-const { sendPushNotification } = require('../utils/sendPushNotification');
 const { encrypt, decrypt } = require("../utils/encryption");
+const { sendPushNotification } = require("../utils/sendPushNotification");
 
 const onlineUsers = {};
 
@@ -17,13 +16,15 @@ async function updateUserOnlineStatus(userId, status) {
 
 function socketHandler(io) {
   io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+    console.log("✅ User connected:", socket.id);
 
-    // ✅ Handle user online status
+    // ========================
+    // ✅ Online Status Handling
+    // ========================
     socket.on("userOnline", async (userId) => {
       onlineUsers[userId] = socket.id;
       await updateUserOnlineStatus(userId, "online");
-      console.log(`User ${userId} is now online`);
+      console.log(`🟢 ${userId} is online`);
     });
 
     socket.on("join", ({ userId }) => {
@@ -32,65 +33,70 @@ function socketHandler(io) {
 
     socket.on("joinGroup", ({ groupId }) => {
       socket.join(groupId);
-      console.log(`User joined group ${groupId}`);
+      console.log(`🟦 Joined group ${groupId}`);
     });
 
-    socket.on("sendMessage", async ({ senderId, receiverId, message }) => {
-      const chatData = {
+    // ========================
+    // ✅ Personal Chat
+    // ========================
+    socket.on(
+      "sendMessage",
+      async ({
         senderId,
         receiverId,
         message,
-        timestamp: new Date(),
-        read: false,
-      };
- 
+        messageType = "text",
+        payload = {},
+      }) => {
+        try {
+          const chatData = {
+            senderId,
+            receiverId,
+            message,
+            messageType,
+            payload,
+            timestamp: new Date(),
+            read: false,
+          };
 
-      const savedMsg = await Chat.create(chatData);
-      if(chatData){
-         console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
-         await sendPushNotification(receiverId, {
-      title: 'New Message',
-      body: message,
-      url: `/chat/${senderId}`
-    });
+          const savedMsg = await Chat.create(chatData);
+
+          const receiverSocketId = onlineUsers[receiverId];
+
+          const msgPayload = {
+            ...chatData,
+            timestamp: savedMsg.timestamp,
+          };
+
+          if (receiverSocketId) {
+            io.to(receiverSocketId).emit("newMessageReceived", msgPayload);
+            io.to(receiverSocketId).emit("newUnreadMessage", {
+              from: senderId,
+              message,
+              messageType,
+              payload,
+              timestamp: savedMsg.timestamp,
+            });
+          } else {
+            await sendPushNotification(receiverId, {
+              title: "New Message",
+              body: message,
+              url: `/chat/${senderId}`,
+            });
+          }
+        } catch (err) {
+          console.error("❌ Error sending message:", err);
+          socket.emit("messageError", {
+            message: "Failed to send message",
+            code: "MESSAGE_FAILED",
+          });
+        }
       }
+    );
 
-      const receiverSocketId = onlineUsers[receiverId];
-
-      if (receiverSocketId) {
-        // ✅ Emit actual chat message to receiver
-        io.to(receiverSocketId).emit("newMessageReceived", {
-          senderId,
-          receiverId,
-          message,
-          timestamp: savedMsg.timestamp,
-        });
-        await sendPushNotification(receiverId, {
-      title: 'New Message',
-      body: message,
-      url: `/chat/${senderId}`
-    });
-
-        // ✅ Emit a lightweight notification to update chat list
-        io.to(receiverSocketId).emit("newUnreadMessage", {
-          from: senderId,
-          message,
-          timestamp: savedMsg.timestamp,
-        });
-        
-      } else {
-    // ✅ Push Notification if user is offline
-    await sendPushNotification(receiverId, {
-      title: 'New Message',
-      body: message,
-      url: `/chat/${senderId}`
-    });
-  }
-
-      // (Optional) Push notification fallback if not online
-    });
-
-    // ✅ Group message handling
+    // ========================
+    // ✅ Group Chat
+    // ========================
     socket.on(
       "sendGroupMessage",
       async ({
@@ -101,22 +107,14 @@ function socketHandler(io) {
         payload = {},
       }) => {
         try {
-          console.log("🟢 Incoming group message", {
-            groupId,
-            senderId,
-            message,
-          });
-
           const group = await Group.findById(groupId);
           if (!group || !group.members.includes(senderId)) {
-            console.warn("❌ Unauthorized group access");
             return socket.emit("groupError", {
               message: "Unauthorized",
               code: "NOT_MEMBER",
             });
           }
 
-          console.log("🔐 Encrypting message...");
           const encryptedMessage = encrypt(message);
 
           const chatData = {
@@ -128,49 +126,33 @@ function socketHandler(io) {
             timestamp: new Date(),
           };
 
-          console.log("💾 Saving group chat:", chatData);
           const savedMsg = await GroupChat.create(chatData);
-
-          // group.members.forEach(memberId => {
-          //   const idStr = memberId.toString();
-          //   const socketId = onlineUsers[idStr];
-          //   if (socketId) {
-          //     io.to(socketId).emit('receiveGroupMessage', {
-          //       ...savedMsg._doc,
-          //       message // decrypted for frontend
-          //     });
-          //   }
-          // });
-
-          // With this:
-          // io.to(groupId).emit("receiveGroupMessage", {
-          //   ...savedMsg._doc,
-          //   message, // decrypted for frontend
-          // });
 
           socket.to(groupId).emit("receiveGroupMessage", {
             ...savedMsg._doc,
+            message, // decrypted for frontend
+          });
+
+          socket.emit("groupMessageSent", {
+            success: true,
+            data: savedMsg._doc,
             message,
           });
 
-          socket.emit("groupMessageSent", { success: true, data: savedMsg._doc,message });
-          console.log("✅ Encrypted group message saved and emitted");
-           // ✅ Send Push Notifications to offline members (excluding sender)
-      for (const memberId of group.members) {
-        const idStr = memberId.toString();
-        const socketId = onlineUsers[idStr];
+          for (const memberId of group.members) {
+            const idStr = memberId.toString();
+            const socketId = onlineUsers[idStr];
 
-        if (!socketId && idStr !== senderId) {
-              // console.log("notificationnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn1");
-          await sendPushNotification(idStr, {
-            title: `New message in ${group.name}`,
-            body: message,
-            url: `/group/${groupId}`, // Adjust if your frontend uses a different path
-          });
-        }
-      }
+            if (!socketId && idStr !== senderId) {
+              await sendPushNotification(idStr, {
+                title: `New message in ${group.name}`,
+                body: message,
+                url: `/group/${groupId}`,
+              });
+            }
+          }
         } catch (err) {
-          console.error("❌ Error sending group message chat:", err);
+          console.error("❌ Error sending group message:", err);
           socket.emit("groupError", {
             message: "Internal error",
             code: "SERVER_ERROR",
@@ -179,59 +161,87 @@ function socketHandler(io) {
       }
     );
 
-    // ✅ Mark group messages as read
-    socket.on("markGroupMessagesRead", async ({ userId, groupId }) => {
-      try {
-        await GroupChat.updateMany(
-          {
-            groupId,
-            "seenBy.userId": { $ne: userId },
-          },
-          {
-            $push: { seenBy: { userId, timestamp: new Date() } },
-          }
-        );
-        console.log(
-          `Marked messages as read in group ${groupId} for user ${userId}`
-        );
-      } catch (err) {
-        console.error("Failed to mark group messages as read", err);
-      }
-    });
-
-    // ✅ Mark 1-to-1 messages as read
+    // ========================
+    // ✅ Message Read
+    // ========================
     socket.on("markMessagesRead", async ({ userId, otherUserId }) => {
       try {
         await Chat.updateMany(
-          {
-            senderId: otherUserId,
-            receiverId: userId,
-            read: false,
-          },
-          {
-            $set: { read: true },
-          }
+          { senderId: otherUserId, receiverId: userId, read: false },
+          { $set: { read: true } }
         );
-        console.log(`Marked messages from ${otherUserId} as read by ${userId}`);
+        console.log(`🔵 Messages from ${otherUserId} marked as read by ${userId}`);
       } catch (err) {
-        console.error("Failed to mark 1-to-1 messages read", err);
+        console.error("❌ Error marking messages read", err);
       }
     });
 
-    // ✅ Handle user disconnect and mark offline
-    socket.on("disconnect", async () => {
-      let disconnectedUserId = null;
-      for (let userId in onlineUsers) {
-        if (onlineUsers[userId] === socket.id) {
-          disconnectedUserId = userId;
-          delete onlineUsers[userId];
-          break;
-        }
+    socket.on("markGroupMessagesRead", async ({ userId, groupId }) => {
+      try {
+        await GroupChat.updateMany(
+          { groupId, "seenBy.userId": { $ne: userId } },
+          { $push: { seenBy: { userId, timestamp: new Date() } } }
+        );
+        console.log(`🔵 Group ${groupId} marked as read by ${userId}`);
+      } catch (err) {
+        console.error("❌ Error marking group messages read", err);
       }
+    });
+
+    // ========================
+    // ✅ Call Signaling (WebRTC)
+    // ========================
+    socket.on("startCall", ({ fromUserId, toUserId, isVideo }) => {
+      const toSocketId = onlineUsers[toUserId];
+      if (toSocketId) {
+        io.to(toSocketId).emit("incomingCall", {
+          fromUserId,
+          isVideo,
+        });
+        console.log(`📞 ${isVideo ? "Video" : "Audio"} call from ${fromUserId} to ${toUserId}`);
+      } else {
+        socket.emit("userOffline", { toUserId });
+        console.log(`❌ User ${toUserId} offline for call`);
+      }
+    });
+
+    socket.on("callDeclined", ({ toUserId }) => {
+      const toSocketId = onlineUsers[toUserId];
+      if (toSocketId) {
+        io.to(toSocketId).emit("callDeclined");
+        console.log(`❌ Call declined for ${toUserId}`);
+      }
+    });
+
+    socket.on("joinCall", (roomId) => {
+      socket.join(roomId);
+      console.log(`📞 User ${socket.id} joined call room ${roomId}`);
+      socket.to(roomId).emit("user-joined-call", socket.id);
+    });
+
+    socket.on("signal", ({ roomId, data, to }) => {
+      io.to(to).emit("signal", { from: socket.id, data });
+      console.log(`📡 Signal from ${socket.id} to ${to} in room ${roomId}`);
+    });
+
+    socket.on("leaveCall", (roomId) => {
+      socket.leave(roomId);
+      socket.to(roomId).emit("user-left-call", socket.id);
+      console.log(`🚪 Left call room ${roomId}`);
+    });
+
+    // ========================
+    // ✅ Disconnect Handling
+    // ========================
+    socket.on("disconnect", async () => {
+      const disconnectedUserId = Object.keys(onlineUsers).find(
+        (key) => onlineUsers[key] === socket.id
+      );
 
       if (disconnectedUserId) {
+        delete onlineUsers[disconnectedUserId];
         await updateUserOnlineStatus(disconnectedUserId, "offline");
-        console.log("User disconnected:", disconnectedUserId);
+        console.log(`❌ ${disconnectedUserId} disconnected`);
       }
     });
   });
