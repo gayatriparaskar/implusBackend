@@ -161,74 +161,29 @@ function socketHandler(io) {
       }
     );
 
-    // ========================
-    // ✅ Message Read
-    // ========================
-    socket.on("markMessagesRead", async ({ userId, otherUserId }) => {
-      try {
-        await Chat.updateMany(
-          { senderId: otherUserId, receiverId: userId, read: false },
-          { $set: { read: true } }
-        );
-        console.log(`🔵 Messages from ${otherUserId} marked as read by ${userId}`);
-      } catch (err) {
-        console.error("❌ Error marking messages read", err);
-      }
-    });
+    // handling calls
 
-    socket.on("markGroupMessagesRead", async ({ userId, groupId }) => {
-      try {
-        await GroupChat.updateMany(
-          { groupId, "seenBy.userId": { $ne: userId } },
-          { $push: { seenBy: { userId, timestamp: new Date() } } }
-        );
-        console.log(`🔵 Group ${groupId} marked as read by ${userId}`);
-      } catch (err) {
-        console.error("❌ Error marking group messages read", err);
-      }
-    });
 
-    // ========================
-    // ✅ Call Signaling (WebRTC)
-    // ========================
-    socket.on("startCall", ({ fromUserId, toUserId, isVideo }) => {
-      const toSocketId = onlineUsers[toUserId];
-      if (toSocketId) {
-        io.to(toSocketId).emit("incomingCall", {
-          fromUserId,
-          isVideo,
-        });
-        console.log(`📞 ${isVideo ? "Video" : "Audio"} call from ${fromUserId} to ${toUserId}`);
-      } else {
-        socket.emit("userOffline", { toUserId });
-        console.log(`❌ User ${toUserId} offline for call`);
-      }
-    });
+    console.log("User connected:", socket.id);
+  User.push(socket.id);
 
-    socket.on("callDeclined", ({ toUserId }) => {
-      const toSocketId = onlineUsers[toUserId];
-      if (toSocketId) {
-        io.to(toSocketId).emit("callDeclined");
-        console.log(`❌ Call declined for ${toUserId}`);
-      }
-    });
+  socket.on("offer", data => {
+    socket.broadcast.emit("offer", data);
+  });
 
-    socket.on("joinCall", (roomId) => {
-      socket.join(roomId);
-      console.log(`📞 User ${socket.id} joined call room ${roomId}`);
-      socket.to(roomId).emit("user-joined-call", socket.id);
-    });
+  socket.on("answer", data => {
+    socket.broadcast.emit("answer", data);
+  });
 
-    socket.on("signal", ({ roomId, data, to }) => {
-      io.to(to).emit("signal", { from: socket.id, data });
-      console.log(`📡 Signal from ${socket.id} to ${to} in room ${roomId}`);
-    });
+  socket.on("candidate", data => {
+    socket.broadcast.emit("candidate", data);
+  });
 
-    socket.on("leaveCall", (roomId) => {
-      socket.leave(roomId);
-      socket.to(roomId).emit("user-left-call", socket.id);
-      console.log(`🚪 Left call room ${roomId}`);
-    });
+  socket.on("disconnect", () => {
+    User = User.filter(id => id !== socket.id);
+    console.log("User disconnected:", socket.id);
+  });
+    
 
     // ========================
     // ✅ Disconnect Handling
