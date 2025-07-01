@@ -15,6 +15,7 @@ async function updateUserOnlineStatus(userId, status) {
 }
 
 function socketHandler(io) {
+  let users = [];
   io.on("connection", (socket) => {
     console.log("✅ User connected:", socket.id);
 
@@ -162,10 +163,8 @@ function socketHandler(io) {
     );
 
     // handling calls
-
-
     console.log("User connected:", socket.id);
-  User.push(socket.id);
+  users.push(socket.id);
 
   socket.on("offer", data => {
     socket.broadcast.emit("offer", data);
@@ -180,7 +179,7 @@ function socketHandler(io) {
   });
 
   socket.on("disconnect", () => {
-    User = User.filter(id => id !== socket.id);
+    users = users.filter(id => id !== socket.id);
     console.log("User disconnected:", socket.id);
   });
     
