@@ -31,14 +31,14 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/group', groupRouter);
 app.use('/api/chat', chatRouter);
-app.use('/api/chatGroup', groupChatRouter);
+app.use('/api/chatGroup', groupChatRouter); // Group chat routes
 app.use('/api/save-subscription', saveSubscriptionRoute);
 
 // Test route
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Server is running perfectly 🚀',
+    message: 'Server is running perfectly 001',
   });
 });
 
@@ -48,7 +48,7 @@ const io = new Server(server, {
   cors: { origin: '*' },
 });
 setSocketIo(io); // For other controllers if needed
-socketHandler(io);
+socketHandler(io); 
 
 // Start server
 const PORT = process.env.PORT || 5000;
