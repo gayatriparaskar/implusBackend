@@ -162,8 +162,37 @@ function socketHandler(io) {
       }
     );
 
-    // handling calls
-    console.log("User connected:", socket.id);
+    // ========================
+    // ✅ Message Read
+    // ========================
+    socket.on("markMessagesRead", async ({ userId, otherUserId }) => {
+      try {
+        await Chat.updateMany(
+          { senderId: otherUserId, receiverId: userId, read: false },
+          { $set: { read: true } }
+        );
+        console.log(`🔵 Messages from ${otherUserId} marked as read by ${userId}`);
+      } catch (err) {
+        console.error("❌ Error marking messages read", err);
+      }
+    });
+
+    socket.on("markGroupMessagesRead", async ({ userId, groupId }) => {
+      try {
+        await GroupChat.updateMany(
+          { groupId, "seenBy.userId": { $ne: userId } },
+          { $push: { seenBy: { userId, timestamp: new Date() } } }
+        );
+        console.log(`🔵 Group ${groupId} marked as read by ${userId}`);
+      } catch (err) {
+        console.error("❌ Error marking group messages read", err);
+      }
+    });
+
+    // ========================
+    // ✅ Call Signaling (WebRTC)
+    // ========================
+     console.log("User connected:", socket.id);
   users.push(socket.id);
 
   socket.on("offer", data => {
@@ -182,7 +211,6 @@ function socketHandler(io) {
     users = users.filter(id => id !== socket.id);
     console.log("User disconnected:", socket.id);
   });
-    
 
     // ========================
     // ✅ Disconnect Handling
