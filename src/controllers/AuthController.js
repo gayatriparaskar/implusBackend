@@ -46,7 +46,7 @@ module.exports.register = async (req, res) => {
     console.log(`✅ OTP for ${data.phone_number}:`, otp);
      return res.status(200).json({
       success: true,
-      message: "Login successful",
+      message: "Login successfully completed",
       existingUser,
       smsSent:otp
     });
