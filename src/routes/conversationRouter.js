@@ -7,4 +7,4 @@ conversationChatRouter.get("/messages/:conversationId",getMessage1on1);
 conversationChatRouter.post("/chat/markRead/:userId/:conversationId", markPersonalChatAsRead);
 conversationChatRouter.post("/groupchat/markRead/:groupId/:userId", markGroupChatAsRead);
 
-module.exports = conversationChatRouter ;
+module.exports = conversationChatRouter ; 

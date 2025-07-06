@@ -47,7 +47,7 @@ module.exports.getMessageListAll = async (req, res) => {
           senderId: { $ne: userId }, // ✅ exclude user's own messages
           "seenBy.userId": { $ne: userId }, // ✅ not seen by this user yet
         });
-        console.log(unreadCount, "unreadCounttttttttttttttttttttttttttttt");
+        console.log(unreadCount, "unreadCountttttttttttttttttttttttttttttooooooooooooo");
 
         const lastMsgRead = await MessageModel.findOne({
           conversationId: convo._id,
