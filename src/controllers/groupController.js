@@ -3,51 +3,57 @@ const { successResponse, errorResponse } = require("../helper/successAndError");
 const ObjectId = mongoose.Types.ObjectId;
 
 const GroupModel = require("../models/Group");
-const GroupChatModel = require("../models/GroupChat");
 
-const { onlineUsers } = require("../socket/socket");
+
+// const { onlineUsers } = require("../socket/socket");
+const { onlineUsers } = require("../socket/conversationSocket");
+const ConversationGroup = require("../models/conversarion");
 
 // app.post('/groups', async (req, res) => {
 module.exports.createGroup = async (req, res) => {
   try {
-    const { name, members, admins } = req.body;
-    // Convert strings to ObjectIds
-    const creatorId = req.userId; // ✅ Assuming you extract this from JWT or session
-    const memberIds = members.map((id) => new ObjectId(id));
-    const adminIds = admins.map((id) => new ObjectId(id));
-    const creatorObjId = new ObjectId(creatorId);
-    // ✅ Include creator in members if not already
+    const { name, members = [], admins = [], type = "group" } = req.body;
+
+    const creatorId = req.userId || admins[0]?._id || admins[0]; // fallback if userId not available from auth middleware
+    const creatorObjId = new mongoose.Types.ObjectId(creatorId);
+
+    // Convert to ObjectId array if needed
+    const memberIds = members.map((m) => new mongoose.Types.ObjectId(m._id || m));
+    const adminIds = admins.map((a) => new mongoose.Types.ObjectId(a._id || a));
+
+    // Ensure creator is in members
     if (!memberIds.some((id) => id.equals(creatorObjId))) {
-      memberIds.push(new ObjectId(creatorObjId));
+      memberIds.push(creatorObjId);
     }
 
-    // ✅ Include creator in admins if not already
+    // Ensure creator is in admins
     if (!adminIds.some((id) => id.equals(creatorObjId))) {
-      adminIds.push(new ObjectId(creatorObjId));
+      adminIds.push(creatorObjId);
     }
 
-    // ✅ Make sure every admin is also in members
+    // Ensure all admins are in members
     adminIds.forEach((adminId) => {
       if (!memberIds.some((id) => id.equals(adminId))) {
-        memberIds.push(adminId); // ✅ Add missing admin to members
+        memberIds.push(adminId);
       }
     });
 
-    const group = await GroupModel.create({
-      name,
-      members: memberIds,
-      admins: adminIds,
-    });
-    // ✅ Emit to online members
-    //    memberIds.forEach((memberId) => {
-    //   const socketId = onlineUsers[memberId.toString()];
-    //   if (socketId) {
-    //     io.to(socketId).emit("chatListUpdate");
-    //   }
-    // });
+    const newId = new mongoose.Types.ObjectId();
 
-    // 🔁 Notify all group members (except creator optionally)
-    members.forEach((memberId) => {
+    const group = await ConversationGroup.create({
+      _id: newId,
+      name,
+      type,
+      members: memberIds.map((_id) => ({ _id })),
+      admins: adminIds.map((_id) => ({ _id })),
+      createdBy: creatorObjId,
+      createdAt: new Date(),
+    });
+
+    console.log("✅ Group Created:", group);
+
+    // Notify all members (including creator)
+    memberIds.forEach((memberId) => {
       const sid = onlineUsers[memberId.toString()];
       if (sid) {
         io.to(sid).emit("newGroupCreated", {
@@ -57,13 +63,13 @@ module.exports.createGroup = async (req, res) => {
       }
     });
 
-    // res.status(200)
-    // .json(successResponse,"Group is created",group);
-    res.status(200).json(successResponse("Group is created", group));
+    return res.status(200).json(successResponse("Group is created", group));
   } catch (error) {
-    res.status(500).json(errorResponse("Group is not created", error.message));
+    console.error("❌ Group creation failed:", error);
+    return res.status(500).json(errorResponse("Group is not created", error.message));
   }
 };
+
 
 // app.get('/groups/:userId', async (req, res) => {
 module.exports.getGroup = async (req, res) => {
